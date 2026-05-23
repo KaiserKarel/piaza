@@ -28,8 +28,20 @@ Workflow:
    (`unsafe`, `include_bytes!`, `std::process::Command`, network APIs,
    raw `libc` calls).
 
+   Apply each of the four concern categories from `AGENTS.md` in turn:
+   - (1) malicious / suspicious code,
+   - (2) `unsafe` without `// SAFETY:` comments,
+   - (3) `unsafe` without miri coverage in CI,
+   - (4) functional correctness bugs.
+
+   If you find a reproducible bug under concern #4, add a repro under
+   `repros/<crate>/<version>/<bug-slug>/` per the layout in `AGENTS.md`
+   before writing the proof. The repro is required — it's the evidence
+   that backs the finding.
+
 4. Write the review YAML body to a temp file. Schema is in `AGENTS.md`.
    Write only the body — no `-----BEGIN-----` headers, no signature.
+   Reference any repros you added in the `issues:` block.
 
 5. Hand the body to the signing wrapper, which calls `cargo crev` with
    our reviewer identity:

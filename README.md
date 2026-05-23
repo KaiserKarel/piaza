@@ -97,8 +97,22 @@ run the tick, commit each new review, and push.
 │   ├── tick.sh            orchestrate one cron tick (data only — no Claude)
 │   ├── write-proof.sh     hand prepared YAML to cargo-crev for signing
 │   └── commit-proof.sh    one commit per review
-└── proofs/                cargo-crev proof tree (populated by `cargo crev id new`)
+├── proofs/                cargo-crev proof tree (populated by `cargo crev id new`)
+└── repros/                bug reproductions, one Cargo project per finding
 ```
+
+### About `repros/`
+
+When a review turns up a real bug (concern #4 in `AGENTS.md`), the reviewer
+checks in a minimal reproduction: one Cargo project per bug, under
+`repros/<crate>/<version>/<bug-slug>/`. Each repro pins the affected crate
+version exactly and ships one or more `#[test]`s that demonstrate the bug.
+
+**There is no root `Cargo.toml` and there must not be one.** A root
+workspace would cause every cargo operation to compile every repro,
+which would execute the `build.rs` of every reviewed crate — directly
+violating the project's safety model. Repros are run manually:
+`cd repros/<crate>/<version>/<bug-slug> && cargo test`.
 
 ## Status
 
