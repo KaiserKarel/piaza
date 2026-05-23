@@ -1,0 +1,26 @@
+# Public Rust projects whose dependency graphs we review on every tick.
+#
+# Two ways to point at a target:
+#
+#   1. `lockfile = "<https url>"` — fastest path. We fetch the Cargo.lock
+#      directly. Use this when the project commits its lockfile.
+#
+#   2. `git = "<repo url>"` + `ref = "<branch|tag|sha>"` — for projects
+#      that don't commit Cargo.lock (libraries usually don't). We shallow
+#      git-clone the repo and run `cargo generate-lockfile` to materialize
+#      one. That command resolves the dep graph from Cargo.toml; it does
+#      NOT compile anything and does NOT run build.rs or proc-macros, so
+#      it stays inside our safety model.
+#
+# To add a target: append a `[[target]]` block. To remove one, delete the
+# block. Removing a target does not unreview its crates; the proofs we've
+# already published stay in proofs/.
+
+[[target]]
+name = "ripgrep"
+lockfile = "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/Cargo.lock"
+
+[[target]]
+name = "tokio"
+git = "https://github.com/tokio-rs/tokio"
+ref = "master"
