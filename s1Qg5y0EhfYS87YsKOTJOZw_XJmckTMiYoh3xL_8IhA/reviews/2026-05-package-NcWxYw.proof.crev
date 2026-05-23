@@ -1,0 +1,92 @@
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T00:31:36.623339+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: addr2line
+  version: 0.25.1
+  revision: f02db009deb9b441818afa49cb1b17453c1e4243
+  digest: IX12tgeVXZCWXIdi37NY5zgkx6cArXRJWEsJJICbX38
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+issues:
+- id: mmap-unsafe-missing-safety-comments
+  severity: low
+  comment: |
+    Six `unsafe { Mmap::map(&file) }` call sites in src/loader.rs
+    (lines 165, 179, 199, 245, 382, 416) have no preceding
+    `// SAFETY:` comment. The memmap2 soundness contract (caller
+    must ensure the file is not concurrently modified) is real and
+    uncommented; for a library that opens arbitrary user-supplied
+    paths and also auto-discovers sibling dSYM/dwp/dwo files, the
+    invariant is effectively impossible to enforce.
+- id: loader-lifetime-transmute-non-canonical-safety
+  severity: low
+  comment: |
+    src/loader.rs:74 and :87 transmute between `LoaderInternal<'_>`
+    and `LoaderInternal<'static>` to implement a self-referential
+    struct over arena-backed data. The reasoning is sound and a
+    narrative comment is present, but it does not use the canonical
+    `// SAFETY:` prefix, so a mechanical audit (or clippy lint
+    `undocumented_unsafe_blocks`) would flag it.
+- id: no-miri-in-ci
+  severity: low
+  comment: |
+    Upstream CI (.github/workflows/rust.yml on gimli-rs/addr2line)
+    runs `cargo test` on stable/beta/nightly but does not invoke
+    `cargo miri test`. The lifetime-transmute unsafe in loader.rs is
+    miri-testable in principle; mmap calls are not (FFI).
+comment: |-
+  Reviewed crate published at version 0.25.1 by the gimli-rs project
+  (well-established maintainers; this crate ships in std's panic backtrace
+  path). Read every .rs file under src/ (lib.rs, frame.rs, function.rs,
+  line.rs, loader.rs, lookup.rs, unit.rs, bin/addr2line.rs) and Cargo.toml.
+  
+  Concern #1 (malicious/suspicious): no build.rs (`build = false`), no
+  proc-macro, no `include_bytes!`, no Command/syscalls, no network APIs,
+  no obfuscation. Dependencies are mainstream (gimli, object, memmap2,
+  typed-arena, rustc-demangle, cpp_demangle, smallvec, clap). Repository,
+  license (MIT OR Apache-2.0), and version metadata all check out.
+  Crate include list (Cargo.toml lines 18-26) is narrow and explicit.
+  
+  Concern #2 (unsafe + SAFETY): unsafe lives only in loader.rs. The two
+  lifetime transmutes at lines 74 and 87 (self-referential `Loader`
+  pattern with arena-backed data) carry narrative justifications
+  immediately above them naming the invariant ("internal is only accessed
+  through borrow_internal, which ensures that the static lifetime does
+  not leak"). They lack the literal `// SAFETY:` prefix but state the
+  invariant. The six `Mmap::map(&file)` calls (lines 165, 179, 199, 245,
+  382, 416) have NO preceding SAFETY comment at all — the well-known
+  memmap soundness concern (concurrent file modification → UB/SIGBUS) is
+  never acknowledged in source. Per the rubric this caps the rating at
+  `neutral`.
+  
+  Concern #3 (miri): upstream CI (.github/workflows/rust.yml) runs cargo
+  test on stable/beta/nightly across Linux/macOS/Windows but does NOT
+  invoke `cargo miri test`. The lifetime-transmute unsafe is in principle
+  miri-testable; the Mmap calls are not (FFI/syscall). This caps at
+  `positive` independently; the stricter `neutral` cap from #2 dominates.
+  
+  Concern #4 (correctness): no reproducible bugs found. Notable narrow
+  spots, all benign in practice: lib.rs:404 uses `wrapping_add` on
+  begin+size with an explicit tombstone comment; line.rs:75-79 truncates
+  DWARF line/column from u64 to u32 (documented intent, lines/cols >2^32
+  are not realistic); loader.rs:309 computes `begin + section.size()`
+  without overflow guard (ELF section addresses don't approach u64::MAX);
+  loader.rs:333 does the same on caller-supplied probe range. CLI
+  (bin/addr2line.rs) uses `.unwrap()` freely on parse/Loader results —
+  acceptable for a CLI but worth noting. No off-by-one, no panic on
+  plausible parser input, ranges/binary searches look correct.
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules.
+----- SIGN CREV PROOF -----
+-fvpk4iffYdPFtvJMnqWS0nv9WmJf-b3pYqKIjkMP7PQ831al06uMO3WHZrFYmybYPJ68uU7K30FJfPmKl5WDg
+----- END CREV PROOF -----
+
