@@ -223,10 +223,40 @@ unsafe-without-miri can't go above `neutral`.
 
 ## Output format
 
-Write **only the YAML body** of the review proof — cargo-crev wraps it in
-headers and signs it. Schema:
+You write a **complete unsigned proof YAML**, not just the review section.
+`cargo crev` requires the full document so it can match the package
+metadata against the source bytes it's about to sign.
+
+Get the canonical template by running, from inside the extracted crate
+source dir:
+
+```sh
+cargo crev crate review \
+    --unrelated --no-edit --no-commit --no-store \
+    --print-unsigned --vers "$version" "$name" > /tmp/unsigned.yaml
+```
+
+This prints a fully-formed unsigned proof with `kind`, `from`, `package`
+(name, version, source, revision, digest) already filled in. Only the
+`review:` section is empty — that's the part you write.
+
+Final document shape (you edit the `review:` block; never touch `from:`
+or `package:`):
 
 ```yaml
+kind: package review
+version: -1
+date: 2026-05-24T...
+from:
+  id-type: crev
+  id: ...
+  url: ...
+package:
+  source: https://crates.io
+  name: foo
+  version: 1.2.3
+  revision: abcd1234...
+  digest: ...
 review:
   thoroughness: medium
   understanding: medium
@@ -238,7 +268,8 @@ comment: |
   a cap from concern #2 or #3, say so.
 ```
 
-If you found issues — including bugs from concern #4 — add `issues:`:
+If you found issues — including bugs from concern #4 — add an `issues:`
+block at the document level (sibling of `review:`):
 
 ```yaml
 issues:

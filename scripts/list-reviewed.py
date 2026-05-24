@@ -8,18 +8,20 @@ under a `proofs/` subdir.
 
 A proof.crev file is a sequence of blocks framed like:
 
-    -----BEGIN CREV PACKAGE REVIEW-----
+    ----- BEGIN CREV PROOF -----
+    kind: package review
     <yaml body>
-    -----BEGIN CREV PACKAGE REVIEW SIGNATURE-----
+    ----- SIGN CREV PROOF -----
     <signature>
-    -----END CREV PACKAGE REVIEW-----
+    ----- END CREV PROOF -----
 
-We extract each YAML body and pull out the `package:` block's name, version,
-and digest. We do NOT verify signatures here — that's `cargo crev verify`'s
-job. We just need the inventory.
+Multiple proof kinds share the same framing (trust proofs, package
+reviews, advisories), so we filter to `kind: package review` before
+extracting fields. We DO NOT verify signatures — that's
+`cargo crev verify`'s job. We just need the inventory.
 
-We avoid PyYAML so the bootstrap stays "stdlib only". The cargo-crev proof
-format is stable enough that a small targeted parser is fine.
+We avoid PyYAML so the bootstrap stays "stdlib only". The cargo-crev
+proof format is stable enough that a small targeted parser is fine.
 """
 import re
 import sys
@@ -31,10 +33,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # reviewer identity), so glob for it.
 PROOFS_GLOB = "*/reviews/*.proof.crev"
 
+# `\s*` tolerates any whitespace variations around BEGIN/SIGN; cargo-crev
+# emits exactly one space on each side today, but the spec doesn't pin it.
 BODY_RE = re.compile(
-    r"-----BEGIN CREV PACKAGE REVIEW-----\n(.*?)\n-----BEGIN CREV PACKAGE REVIEW SIGNATURE-----",
+    r"-----\s*BEGIN CREV PROOF\s*-----\n(.*?)\n-----\s*SIGN CREV PROOF\s*-----",
     re.DOTALL,
 )
+KIND_RE = re.compile(r"^kind:\s*package review\s*$", re.MULTILINE)
 
 
 def extract_pkg_field(body: str, field: str) -> str | None:
@@ -74,6 +79,9 @@ def main() -> int:
         text = proof_file.read_text(encoding="utf-8", errors="replace")
         for match in BODY_RE.finditer(text):
             body = match.group(1)
+            # Skip non-package-review proofs (trust, advisory, etc.).
+            if not KIND_RE.search(body):
+                continue
             name = extract_pkg_field(body, "name")
             version = extract_pkg_field(body, "version")
             digest = extract_pkg_field(body, "digest") or ""

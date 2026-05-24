@@ -39,17 +39,33 @@ Workflow:
    before writing the proof. The repro is required — it's the evidence
    that backs the finding.
 
-4. Write the review YAML body to a temp file. Schema is in `AGENTS.md`.
-   Write only the body — no `-----BEGIN-----` headers, no signature.
-   Reference any repros you added in the `issues:` block.
-
-5. Hand the body to the signing wrapper, which calls `cargo crev` with
-   our reviewer identity:
+4. Get the canonical unsigned-proof template from cargo-crev. This is
+   the document `cargo crev` will sign — `package` metadata is already
+   filled in (name, version, source, revision, digest). You'll edit
+   only the `review:` section (and add `issues:`/`advisories:` if
+   appropriate). Run from inside the extracted source dir so cargo-crev
+   has the cargo project context it needs:
    ```
-   ./scripts/write-proof.sh "$1" "$2" "$src_dir" /tmp/review-body.yaml
+   cd "$src_dir"
+   cargo crev crate review \
+       --unrelated --no-edit --no-commit --no-store \
+       --print-unsigned --vers "$2" "$1" > /tmp/unsigned.yaml
+   cd -
    ```
 
-6. Commit the new proof file with a one-line message:
+5. Edit `/tmp/unsigned.yaml` in place. Do NOT touch `kind`, `from`,
+   `package`, `date`, or `version` — those came from cargo-crev and
+   must stay byte-identical or the proof won't match the source.
+   Replace the empty `review:` section with your filled-in rubric
+   per `AGENTS.md`. Add `issues:` / `advisories:` at the document
+   level if your findings warrant it. Reference any repros you added.
+
+6. Hand the unsigned proof to the signing wrapper:
+   ```
+   ./scripts/write-proof.sh "$1" "$2" "$src_dir" /tmp/unsigned.yaml
+   ```
+
+7. Commit the new proof file (and its log) with a one-line message:
    ```
    ./scripts/commit-proof.sh "$1" "$2"
    ```
