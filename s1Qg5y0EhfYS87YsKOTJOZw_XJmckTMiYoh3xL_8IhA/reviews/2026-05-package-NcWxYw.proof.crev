@@ -604,3 +604,72 @@ comment: |-
 QH-gdiszjfLhS2HVrQZR6-rxsMasbWppkZyaKNzlJmNtiDWcIzfMGOVkeJdP03p7QttpqcxGqcjC4UeNKS2dAQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T23:25:29.637832+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: anyhow
+  version: 1.0.102
+  revision: 5c657b32522023a9f7ef883fb08582fd8e656b1a
+  digest: qhEflO5lxjzQrHo6q3covPQR_Wo9GSuU-ZsBtJRM2mM
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+comment: |-
+  Reviewed as a delta against the 1.0.100 proof. 1.0.102 is a pure cleanup
+  release: MSRV bumped 1.39 -> 1.68 and edition 2018 -> 2021, all
+  `anyhow_no_ptr_addr_of`, `anyhow_no_core_unwind_safe`,
+  `anyhow_no_fmt_arguments_as_str`, and `anyhow_no_unsafe_op_in_unsafe_fn_lint`
+  cfg branches are deleted, and the optional `backtrace` crate dependency is
+  removed. The `backtrace` feature is retained as an empty no-op for
+  consumer compat. Net effect on the audit surface: strictly less unsafe
+  code, no semantic changes.
+  
+  Concern #1 (malicious/suspicious): build.rs only got smaller — it no
+  longer emits the `std_backtrace`/`anyhow_no_ptr_addr_of`/etc cfgs that
+  targeted pre-1.65 rustc. Still only rustc version probing via
+  compile_probe writing into OUT_DIR/probe and removing it; no network,
+  no shell-out beyond rustc, no writes outside OUT_DIR. Cargo.toml has
+  zero runtime deps (only the empty `backtrace`/`std` features and
+  dev-deps). License, repo, author unchanged.
+  
+  Concern #2 (unsafe + SAFETY): The entire `mod capture` in
+  src/backtrace.rs is gone — including the `UnsafeCell<Capture>` and
+  `unsafe impl Sync for LazilyResolvedCapture` block from the manual
+  `backtrace`-crate-based path. backtrace.rs is now 49 lines and uses
+  std::backtrace::Backtrace unconditionally when `feature = "std"` is
+  on. The dead `object_mut`/`object_downcast_mut`/`context_chain_downcast_mut`
+  variants in src/error.rs (gated on the removed `anyhow_no_ptr_addr_of`
+  cfg) are deleted. Remaining `unsafe` is the same vtable/thin-pointer
+  pattern as 1.0.100: every `unsafe fn` in src/error.rs has a preceding
+  `// Safety:` comment naming the invariant ("requires layout of *e to
+  match ErrorImpl<E>", "passing vtable that operates on the right type",
+  etc.). ensure.rs::Buf and ptr.rs are byte-identical in their unsafe
+  shape. `#![deny(unsafe_op_in_unsafe_fn)]` is now unconditional at
+  lib.rs:212. Comments use `// Safety:` not the canonical `// SAFETY:`;
+  consistent with 1.0.100 — no cap applied.
+  
+  Concern #3 (miri): .github/workflows/ci.yml miri job is unchanged —
+  still runs `cargo miri test` with MIRIFLAGS=-Zmiri-strict-provenance
+  (lines 123-135). Vtable / pointer arithmetic stays under miri coverage.
+  
+  Concern #4 (correctness): No new functional changes; the diff is
+  config/cfg removal plus syntactic modernization (`as *const T` ->
+  `.cast_const()`, `as *mut E` -> `.cast_mut()`, `match ... { Some => ..,
+  None => return }` -> `let Some(...) = ... else { return }`). No new
+  bug shapes introduced. The `pub fn Ok` got `#[inline]` added — pure
+  optimization.
+  
+  Rating: positive (inherited from 1.0.100; the changes reduce unsafe
+  surface without altering semantics).
+----- SIGN CREV PROOF -----
+G3MTBEqMu_QzQVMm8OjfW-rxxPWFZljYefsQClE4J9qHinQaxALt18eNn8dBNfXg6uilMxko0O_-5cvd4BCkCg
+----- END CREV PROOF -----
+
