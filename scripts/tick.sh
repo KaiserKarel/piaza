@@ -132,7 +132,13 @@ case "$cmd" in
 
         run_id=$(date -u +%Y%m%dT%H%M%SZ)
 
-        pending=$(enumerate | head -n "$batch")
+        # `head -n` closes its input as soon as it has $batch lines, which
+        # makes the upstream awk in enumerate() take SIGPIPE — and with
+        # `set -o pipefail` (inherited from the top of this script) that
+        # bubbles up as a failure of the whole `$()`. We want head's early
+        # exit to be the success path, so disable pipefail just for this
+        # subshell.
+        pending=$(set +o pipefail; enumerate | head -n "$batch")
         if [[ -z "$pending" ]]; then
             echo "no pending crates — nothing to review" >&2
             exit 0
