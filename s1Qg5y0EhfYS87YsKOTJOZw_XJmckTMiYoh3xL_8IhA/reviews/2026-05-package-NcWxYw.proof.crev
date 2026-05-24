@@ -254,3 +254,67 @@ comment: |-
 NxgRuayQZK7buzFIutzXHawQBzepxzHsYG-ZxYtyo8lYmNRIYzhdp0-GBbTa3AQ26V1YsZsgDBMu5QziITT6AQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T10:20:37+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: aho-corasick
+  version: 1.1.4
+  revision: 17f8b32e3b7c845ef3c5429b823804f552f14ec9
+  digest: TWuyQKRzHEvLKabAbfnwA6pYkwrKQcq6XWyTUUIM_I0
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+issues:
+- id: missing-safety-comments-at-teddy-call-sites
+  severity: low
+  comment: |
+    Inherited from 1.1.3: several `unsafe { ... }` blocks in
+    packed/teddy/builder.rs (482, 546, 618, 748) and ~40 in
+    packed/vector.rs test code lack the literal `// SAFETY:` prefix
+    even though the surrounding feature-detection guard IS the
+    safety invariant. Caps rating at neutral per rubric §2. No
+    change between 1.1.3 and 1.1.4.
+- id: no-miri-in-ci
+  severity: low
+  comment: |
+    .github/workflows/ci.yml still does not run miri in 1.1.4.
+    Caps independently at positive; §2 cap dominates.
+comment: |-
+  Reviewed as a delta against 1.1.3. The on-disk diff is ~46 lines
+  total, entirely clippy/style cleanups: redundant borrows removed
+  (`&haystack` -> `haystack`, `&self.0` -> `self.0`), `.map(|p|
+  p.clone())` -> `.cloned()` at src/dfa.rs:497, `'b` lifetime
+  collapsed to `'_` at src/nfa/contiguous.rs:824, redundant `b as
+  u8` cast removed at src/util/prefilter.rs:552, the unstable
+  feature flag in src/lib.rs:230 switched from `doc_auto_cfg` to
+  `doc_cfg`, plus Cargo manifest normalization by a newer Cargo
+  toolchain (adds `build = false`, `autolib = false`, `autobins =
+  false`, etc.).
+  
+  Concern #1: no changes — no build.rs added, no new deps, no
+  proc-macro flip, no obfuscation. Author and license unchanged.
+  
+  Concern #2: zero changes to `unsafe` blocks or `// SAFETY:`
+  comments. Same SAFETY-comment-missing situation in
+  packed/teddy/builder.rs at lines 482, 546, 618, 748 as in 1.1.3.
+  
+  Concern #3: .github/workflows/ci.yml unchanged in any
+  miri-relevant way. Still no miri job.
+  
+  Concern #4: nothing in the diff alters semantics — the removed
+  borrows/casts compile to identical code, and the lifetime change
+  is purely cosmetic. No new bug shapes introduced.
+  
+  Did NOT run any code. Rating inherited from 1.1.3: neutral.
+----- SIGN CREV PROOF -----
+fYDzvfGYQiycm1l9bT5OPX4JuIAj9oR-G-IFoPA5H090GEucmGHiRSbq-5umEH2769qxzkyYdksHDAKZuxqJAA
+----- END CREV PROOF -----
+

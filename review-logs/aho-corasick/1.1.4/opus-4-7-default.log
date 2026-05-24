@@ -1,0 +1,19 @@
+# Review log: aho-corasick 1.1.4
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate aho-corasick 1.1.4`
+- **Started (UTC):** 2026-05-24T10:20:00Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+Reviewed as a delta against 1.1.3 (just signed in the prior commit).
+`diff -r` between the two extracted tarballs is ~46 lines, entirely
+clippy/style cleanups: redundant borrows removed, `.map(|p|
+p.clone())` -> `.cloned()`, `'b` lifetime collapsed to `'_`,
+`b as u8` removed where `b` was already u8, `doc_auto_cfg` ->
+`doc_cfg`, plus Cargo manifest normalization from a newer Cargo
+(adds `build = false`, `autolib = false`, etc.). Zero changes to
+`unsafe` blocks or `// SAFETY:` comments. Same authors, same deps,
+same CI (still no miri). Rating inherited from 1.1.3: neutral.
