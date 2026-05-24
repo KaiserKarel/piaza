@@ -673,3 +673,83 @@ comment: |-
 G3MTBEqMu_QzQVMm8OjfW-rxxPWFZljYefsQClE4J9qHinQaxALt18eNn8dBNfXg6uilMxko0O_-5cvd4BCkCg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T23:31:28.844932+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: arbitrary
+  version: 1.4.2
+  revision: dc22fdefd5456a0f4d2f190c6d3e017e3c7ddd8e
+  digest: P-lvivL2Xlbt5ZOA6J5Fo47-oaRyA8jcgzVoQ1AJSZ4
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: unsafe-missing-safety-comments
+  severity: low
+  comment: |
+    Three of four `unsafe` blocks lack the conventional `// SAFETY:`
+    prefix: src/foreign/core/array.rs:21, src/foreign/core/array.rs:38,
+    and src/foreign/core/str.rs:15. The reasoning is sound in each
+    case, but the project convention is not followed. Combined with
+    the absence of miri in CI, this caps the rating at neutral.
+comment: |-
+  The `arbitrary` crate provides the `Arbitrary` trait and an `Unstructured`
+  byte source for structure-aware fuzzing. It is the canonical crate for
+  this purpose in the rust-fuzz ecosystem.
+  
+  Read every `.rs` file under `src/` (lib.rs, error.rs, size_hint.rs,
+  unstructured.rs, and every file under src/foreign/{core,alloc,std}/).
+  No build.rs (build = false in Cargo.toml). The only optional dependency
+  is `derive_arbitrary` ~1.4.0, which is a separate proc-macro crate not
+  bundled here. CI (.github/workflows/rust.yml) runs build, tests, clippy,
+  rustfmt, and a 3-minute libFuzzer run of `int_in_range` -- but no miri.
+  
+  No signs of malicious behaviour: no obfuscation, no network/FS access,
+  no env-var harvesting, no `std::process`, no `include_bytes!` blobs, no
+  `transmute`, no inline asm.
+  
+  Four `unsafe` blocks:
+    - src/foreign/core/array.rs:21 (Drop): no `// SAFETY:` prefix. The
+      reasoning is correct (drops only the initialized prefix tracked by
+      ArrayGuard), but the convention is not followed.
+    - src/foreign/core/array.rs:38 (try_create_array body): no
+      `// SAFETY:` prefix. The unsafe block writes through a raw pointer
+      and calls `MaybeUninit::assume_init`; correctness depends on the
+      ArrayGuard above and on every callback succeeding before
+      `mem::forget(guard)`.
+    - src/foreign/core/str.rs:15 (`str::from_utf8_unchecked`): no
+      `// SAFETY:` prefix; there is a `debug_assert!(str::from_utf8(...).is_ok())`
+      inside the block. The invariant (utf8 valid up to `valid_up_to()`)
+      is straightforward but the prefix is missing.
+    - src/foreign/alloc/ffi/c_str.rs:11 (`CString::from_vec_unchecked`):
+      has a proper `// SAFETY: all zero bytes have been removed` comment.
+  
+  Per AGENTS.md concern #2, any unsafe block lacking a SAFETY comment
+  caps the rating at `neutral`; three of four blocks are missing the
+  prefix.
+  
+  Per concern #3, the unsafe code here is pure-Rust pointer manipulation
+  and `from_utf8_unchecked` -- all miri-testable -- but CI does not run
+  miri. That alone would cap at `positive`. The combined cap is `neutral`.
+  
+  Functional correctness (concern #4): no reproducible bugs found.
+  Minor cosmetic notes that do not affect rating:
+    - src/foreign/core/char.rs:6 doc-comment says "highest unicode code
+      point is 0x11_FFFF" -- the actual constant `CHAR_END = 0x11_0000`
+      and the modulo are correct, but the comment number is a typo for
+      0x10_FFFF.
+    - src/size_hint.rs `and` / `and_all` use plain `+`, which would panic
+      in debug or wrap in release if a downstream impl returned huge
+      bounds. Not reachable from anything in this crate.
+----- SIGN CREV PROOF -----
+3QaQzFc-jnQJjc9onpiTHlLAi10_BO0ZJCMsFrvSliFyYbvyTJiFp7xDBWZ0B00vZKRL1AhHveYfrgylmSVnDQ
+----- END CREV PROOF -----
+

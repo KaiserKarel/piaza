@@ -181,26 +181,40 @@ EOF
             # stdin from the surrounding `while read ... done <<<"$pending"`
             # heredoc and drains it after the first iteration, so the loop
             # silently runs only once.
+            head_before=$(git rev-parse HEAD)
+            claude_ok=0
             if claude -p "$review_command $name $version" \
                 --model "$model" \
                 --permission-mode bypassPermissions \
                 --no-session-persistence \
                 </dev/null >>"$log_file" 2>&1; then
-                echo "[$name $version] OK" >&2
+                claude_ok=1
+            else
+                rc=$?
+                echo "[$name $version] FAILED (rc=$rc); see ${log_file#$repo_root/}" >&2
+            fi
+
+            head_after=$(git rev-parse HEAD)
+            if [[ "$claude_ok" == "1" && "$head_after" != "$head_before" ]]; then
+                # Real success: claude completed AND a new commit landed.
+                echo "[$name $version] OK ($(git rev-parse --short HEAD))" >&2
                 successes=$((successes + 1))
                 # commit-proof.sh staged + committed the log mid-session.
                 # Claude often keeps writing post-commit chatter to stdout
                 # (summary, follow-up questions). Discard that so the
                 # working tree stays clean for the next iteration; the
                 # substantive content is already in the commit.
-                if git ls-files --error-unmatch "$log_file" >/dev/null 2>&1; then
-                    git checkout HEAD -- "$log_file"
-                fi
-            else
-                rc=$?
-                echo "[$name $version] FAILED (rc=$rc); see ${log_file#$repo_root/}" >&2
+                git checkout HEAD -- "$log_file"
+            elif [[ "$claude_ok" == "1" ]]; then
+                # Claude returned 0 but no new commit landed. Most common
+                # cause: commit-proof.sh failed (signing broken, etc.) and
+                # claude reported the failure narratively but still exited
+                # cleanly. Treat as a failure so the operator can see it.
+                echo "[$name $version] FAILED: no new commit despite claude exit=0; staged state may be dirty" >&2
                 failures=$((failures + 1))
-                # Don't abort the tick on a single failure — log and move on.
+            else
+                # Claude itself exited non-zero — already logged above.
+                failures=$((failures + 1))
                 # Leave the log on disk untouched so it captures the failure.
             fi
         done <<<"$pending"
