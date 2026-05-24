@@ -1,0 +1,8 @@
+[package]
+name = "repro-bcrypt-0_19_0-panic-on-non-ascii-hash"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bcrypt = "=0.19.0"

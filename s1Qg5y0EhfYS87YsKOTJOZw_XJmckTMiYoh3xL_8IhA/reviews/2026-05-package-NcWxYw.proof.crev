@@ -1243,3 +1243,64 @@ comment: |-
 hVK7aJY5tr-rAIKO1gobEElnvh1cFgN3ASQAlS-AxrYLEiD7W0lFDiM_gr47qjeDLnamZvoMeETNe1bntY-bDQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T01:02:28.737044+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bcrypt
+  version: 0.19.0
+  revision: 9222c285cad733610459f5fb5453b92bdd4b31f4
+  digest: ZHTcKX-t6DO3pRtVOXQSrV7oQ_Pbyf3f2m1RhuyICDo
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: panic-on-non-ascii-hash
+  severity: medium
+  comment: |
+    `verify(_, hash)` panics when given a 60-byte `&str` whose `$..$..$`
+    prefix is valid but which contains a multi-byte UTF-8 character that
+    straddles byte index 29. `split_hash` (src/lib.rs:220, 223) does
+    `&salt_and_hash[..22]` without enforcing that bytes 7..60 are ASCII.
+    Denial-of-service if untrusted input flows into `verify`; no memory
+    safety impact (`#![forbid(unsafe_code)]`).
+    Reproduction: repros/bcrypt/0.19.0/panic-on-non-ascii-hash/
+comment: |-
+  Read every file: Cargo.toml, README, src/lib.rs (752 lines), src/bcrypt.rs,
+  src/errors.rs. No build.rs (`build = false` in Cargo.toml), no proc-macros,
+  no `unsafe` (crate is `#![forbid(unsafe_code)]`). Dependencies are all
+  reputable: base64 0.22, blowfish 0.9, getrandom 0.4 (optional), subtle
+  2.4.1, zeroize 1.5.4 (optional), quickcheck (dev). Crypto delegated to
+  blowfish; OrpheanBeholderScryDoubt magic and EksBlowfish key-schedule are
+  the standard bcrypt construction. Constant-time compare via `subtle` in
+  `_verify`. Password buffer zeroized after hashing when `zeroize` feature
+  is on.
+  
+  Concern #4 (functional correctness): found a panic in `split_hash`
+  (lib.rs:220, 223). The function checks `hash.len() == 60` and that bytes
+  0/3/6 are `$`, then does `&salt_and_hash[..22]` / `&salt_and_hash[22..]`
+  on a `&str` without validating the rest is ASCII. A 60-byte hash whose
+  prefix is `$2a$04$` and which contains a multi-byte UTF-8 character
+  straddling byte index 29 (e.g. `£` at byte 28-29) panics in the
+  `str::Index` impl with "byte index 22 is not a char boundary". The
+  existing `does_no_error_on_char_boundary_splitting` test attempts to
+  cover this but its input fails the prefix check before reaching the
+  slice, so the test is inert. Repro at
+  repros/bcrypt/0.19.0/panic-on-non-ascii-hash/. Real bcrypt hashes are
+  always ASCII so this only matters when untrusted UTF-8 reaches `verify`;
+  hence the rating cap at `neutral` per the rubric for "panics on plausible
+  input". No memory-safety impact (unsafe is forbidden).
+  
+  Suggested fix: validate `hash.is_ascii()` early, or perform the slicing on
+  `hash.as_bytes()` and only `from_utf8` the digit/version slices.
+----- SIGN CREV PROOF -----
+gCK-YJg5IW41oXYV4MjceSCghfe2kkAiaa541rkjFx2lCzOtHZNSJ6AO7G8GtqjMjQ3GeuITcvYeEcJ79XqeDg
+----- END CREV PROOF -----
+
