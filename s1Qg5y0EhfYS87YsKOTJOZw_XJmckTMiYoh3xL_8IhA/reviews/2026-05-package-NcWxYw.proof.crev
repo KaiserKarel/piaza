@@ -815,3 +815,59 @@ comment: |-
 RUdvtT1WeDm5MnpLaEoZnPKVSTcRf37VdV66WetaOSlGF8kfhfBQxFFzfOhY81ou9Mcpvg6PHqCY8tne26jBAw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T00:10:27.022562+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: arrayvec
+  version: 0.7.6
+  revision: 0aede877fe0bfb1ba5e3c2024df8c0958d503a83
+  digest: fWpZKOgx3qpx3t20Kqo-d6_KJDZKflfryUfx4bKs9U4
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+comment: |-
+  Widely used fixed-capacity vector/string crate by bluss. Read every .rs file
+  under src/ (lib.rs, arrayvec.rs, arrayvec_impl.rs, array_string.rs, char.rs,
+  errors.rs, utils.rs), plus Cargo.toml(.orig), README, and the CI workflow.
+  
+  Concern 1 (malicious code): clean. No build.rs, no proc-macros, no
+  include_bytes!, no obfuscation, no network/FS I/O, no shelling out. Optional
+  deps (serde, borsh, zeroize) are reputable and gated behind features. License
+  and repository metadata match upstream.
+  
+  Concern 2 (unsafe without SAFETY): the crate makes heavy use of `unsafe`
+  (around 30 blocks/functions across arrayvec.rs, array_string.rs, char.rs,
+  arrayvec_impl.rs). Only one block carries a `// SAFETY:` comment
+  (array_string.rs:147 in `zero_filled`); a handful of `///`-level doc comments
+  partially document unsafe fn invariants (char.rs:30, arrayvec.rs:667,
+  arrayvec.rs:1075). The remainder rely on the reader inferring invariants
+  from surrounding code. The patterns themselves mirror std::Vec
+  (MaybeUninit buffer, BackshiftOnDrop in retain, ScopeExitGuard in extend,
+  Drain truncating len before yielding, ZST-aware raw_ptr_add) and look
+  correct, but per the rubric this caps the rating at `neutral`.
+  
+  Concern 3 (miri): miri runs in CI via .github/workflows/ci.yml (`cargo miri
+  test --all-features`), exercising the safe-API tests against the unsafe
+  internals. No penalty.
+  
+  Concern 4 (correctness): walked the load-bearing unsafe paths (push,
+  try_insert, retain, drain_range, extend_from_iter, IntoIter/Drain Drop,
+  into_inner_unchecked, try_extend_from_slice, try_push_str). Bounds checks
+  and len updates are placed correctly relative to writes/drops; panic-safety
+  guards set len before running user code; range Bounds use saturating_add to
+  avoid overflow; ZST handling is explicit. Did not find a reproducible bug.
+  
+  Rating capped at `neutral` solely due to missing SAFETY comments
+  (concern #2); functional code quality is otherwise high.
+----- SIGN CREV PROOF -----
+OAjapuW2ujo0BEBNoRF8joxYRJyfUD3HZcYYtnVfOPR-p55-XqnkbIMbZozUzUs4-gGFrhmJqEGSfBAu-y2WCg
+----- END CREV PROOF -----
+
