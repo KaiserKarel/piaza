@@ -1172,3 +1172,74 @@ comment: |-
 z2_UPKHPE8tuYsPiqSAQ_XB7Xh067eZQFQzizc5-I36VUGsk0vEPnt9mO4fJxChO6IVshSELTkGpvP0a_1fvBQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T00:44:10.869265+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: base64
+  version: 0.22.1
+  revision: e14400697453bcc85997119b874bc03d9601d0af
+  digest: fBUJgwJw8c1XGxL1ez4FoeFKG01Qid4SiolVByZ0DJw
+review:
+  thoroughness: high
+  understanding: high
+  rating: strong
+comment: |-
+  Widely used base64 encode/decode crate by Marshall Pierce. Read every
+  .rs file under src/ (alphabet, encode, decode, engine/general_purpose
+  mod+decode+decode_suffix, engine/mod, engine/naive [test-only],
+  chunked_encoder, display, read/decoder, write/encoder+string_writer,
+  prelude, lib).
+  
+  Supply chain (concern #1):
+  - No build.rs, no proc-macro, no production dependencies (alloc/std
+    feature gates only). Dev-deps only: clap, criterion, once_cell, rand,
+    rstest, rstest_reuse, strum.
+  - License MIT OR Apache-2.0, repo
+    github.com/marshallpierce/rust-base64, well-established author.
+  - No process/network/fs/libc usage; grep for std::process, std::net,
+    std::fs, libc, include_bytes!, extern "C" found nothing.
+  
+  unsafe (concerns #2/#3):
+  - `#![forbid(unsafe_code)]` at src/lib.rs:233. No unsafe anywhere in
+    the crate, so SAFETY-comment and miri caps do not apply. Two
+    `unsafe` mentions in source are in comments only (display.rs:48-49,
+    general_purpose/mod.rs:69).
+  
+  Functional correctness (concern #4):
+  - Length math uses checked_add/checked_mul where overflow is possible
+    (encode.rs:86-87, encode.rs:104, engine/mod.rs:121,208,316).
+    encoded_len() returns Option to surface usize overflow.
+  - decode_helper indexing: complete_quads_len enforces output_len >=
+    quads/4*3 before the unrolled chunk loop; decode_suffix uses
+    get_mut with OutputSliceTooSmall fallback for the final 0-3 bytes.
+  - Padding handling in decode_suffix.rs:31-109 covers all four
+    documented bad-padding cases plus DecodePaddingMode variants and
+    trailing-bits canonicalness via mask check at line 133-141.
+  - read::DecoderReader carefully tracks input_consumed_len offsets so
+    error positions remain accurate across the BUF_SIZE-bounded internal
+    buffer; padding-after-padding reported at first pad offset.
+  - write::EncoderWriter rolls back extra_input_occupied_len on writer
+    error and avoids reentrancy via the `panicked` flag in Drop.
+  - The fast encode loop reads u64s with 2 bytes of headroom
+    (`last_fast_index = len.saturating_sub(BLOCKS_PER_FAST_LOOP*6+2)`)
+    so the final u64 read never goes OOB.
+  
+  Advisories:
+  - RUSTSEC-2017-0004 (integer overflow in encode_config_buf) affects
+    only very old pre-0.5 versions. 0.22.1 uses checked arithmetic and
+    is not affected.
+  
+  CI runs cargo test on stable/beta/nightly plus MSRV, no_std target
+  thumbv6m-none-eabi, clippy on stable, and cargo-fuzz on nightly.
+  No miri needed (no unsafe).
+----- SIGN CREV PROOF -----
+hVK7aJY5tr-rAIKO1gobEElnvh1cFgN3ASQAlS-AxrYLEiD7W0lFDiM_gr47qjeDLnamZvoMeETNe1bntY-bDQ
+----- END CREV PROOF -----
+
