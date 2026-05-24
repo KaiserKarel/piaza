@@ -871,3 +871,83 @@ comment: |-
 OAjapuW2ujo0BEBNoRF8joxYRJyfUD3HZcYYtnVfOPR-p55-XqnkbIMbZozUzUs4-gGFrhmJqEGSfBAu-y2WCg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T00:25:37.284001+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: async-stream-impl
+  version: 0.3.6
+  revision: b0b2f22df8e87b7fed7b2fa234509797adbff7db
+  digest: iVJffdUOUGyW_6ws6OjRIX0ZQLT_5_YapUISA9idAYc
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  The proc-macro half of the tokio-rs/async-stream crate, authored by Carl
+  Lerche. A single src/lib.rs (~316 lines) plus Cargo.toml and LICENSE; no
+  build.rs (the manifest sets `build = false`), no README, no examples in the
+  tarball. Read the entire source.
+  
+  Concern #1 (malicious / suspicious): `proc-macro = true`, so this code runs
+  in every consumer's build -- the threat surface that matters. Nothing
+  alarming. The implementation is a straightforward syn/quote token-stream
+  rewriter: it walks the user's block, swaps `yield <expr>` for
+  `__yield_tx.send(...).await`, rewrites `?` inside `try_stream!` to forward
+  the error through `__yield_tx`, and rewrites `for await x in stream` into a
+  `Pin::new_unchecked` + `next()` loop. No I/O, no env-var reads, no Command,
+  no include_bytes!, no obfuscation. Dependencies are the canonical
+  proc-macro trio: proc-macro2 1.0.60, quote 1, syn 2.0.2 (full + visit-mut).
+  License MIT, repository link matches tokio-rs/async-stream, version and
+  authorship match crates.io.
+  
+  Concern #2 (unsafe + SAFETY): the macro body itself contains no executable
+  `unsafe`. Three `unsafe` tokens appear inside `quote!` blocks -- i.e. they
+  are emitted into the consumer's code, not run by the proc-macro:
+    - lib.rs:176 `Pin::new_unchecked(&mut __pinned)` in the `for await`
+      expansion (sound because `__pinned` is a fresh local immediately
+      shadowed and never moved).
+    - lib.rs:235 / lib.rs:271 `#crate_path::__private::yielder::pair()` in
+      the generated `stream!` / `try_stream!` body.
+  Audit of those unsafe invariants belongs to the async-stream crate review,
+  not here. No cap from concern #2.
+  
+  Concern #3 (miri): the published tarball ships only the crate subdirectory
+  -- no .github/, no CI config (CI lives at the workspace root of
+  tokio-rs/async-stream). Since the proc-macro itself executes no unsafe
+  code, miri coverage is not relevant to this crate. No cap.
+  
+  Concern #4 (correctness): walked the rewriter end-to-end. Observations:
+    - `parse_input` (lines 16-24) panics via `input.next().unwrap()` and
+      `_ => panic!()` if the first token tree isn't a Group containing the
+      crate path. The macro is `#[doc(hidden)]` and only invoked by the
+      `stream!` / `try_stream!` declarative macros in async-stream, which
+      always prepend `($crate)`, so this precondition is enforced by the
+      caller. Acceptable.
+    - `attrs.pop().unwrap()` (line 171) is guarded by the
+      `attrs.len() != 1` check three lines above.
+    - `yield_expr.expr.as_ref().unwrap_or(&self.unit)` (line 119) has a
+      proper fallback for bare `yield`.
+    - The `stream`/`try_stream` ident special-case (lines 74-84) skips
+      transformation inside nested `stream!`/`try_stream!` invocations to
+      avoid double-rewriting nested yields; the matching `visit_macro_mut`
+      override (lines 193-200) does the same at the syn level. Consistent.
+    - The `'__async_stream_private_check_scope` label + dummy `if false`
+      block (lines 226-232, 262-268) is a scope-check trick that forces the
+      `break` target in the yield expansion to type-check; benign.
+    - `replace_for_await` (lines 287-316) recurses into Groups by
+      reconstructing them with `set_span` preserved -- span info is not lost.
+  No reproducible bugs found.
+  
+  Rating: positive. Behaves as a thin syn/quote rewriter, no executable
+  unsafe, no supply-chain red flags.
+----- SIGN CREV PROOF -----
+B9h6CMSEqeNg9VuPOHI2yyaehtNAMZZKz8hQ3XlOIEFyVnD1A99Zvm3Zs7tQnv-W8q4fC6_HYWIuX6s2VR9BBA
+----- END CREV PROOF -----
+
