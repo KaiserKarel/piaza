@@ -1,0 +1,26 @@
+# Review log: adler2 2.0.1
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate adler2 2.0.1`
+- **Started (UTC):** 2026-05-24T10:15:00Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+Reviewed by Opus 4.7 via manual /review-crate invocation (batched
+multi-crate request; tick.sh was not used so this log was written by
+hand). Inspected:
+
+- Cargo.toml (no build.rs, no proc-macro, `#![forbid(unsafe_code)]`)
+- src/lib.rs (~287 lines, public API + tests)
+- src/algo.rs (~156 lines, core checksum algorithm)
+- README.md, CHANGELOG.md
+
+Findings: no unsafe (forbidden at crate root), no build.rs, zero
+runtime deps. Single optional dep on `rustc-std-workspace-core` for
+the `rustc-dep-of-std` feature (used when adler2 is built as part of
+libstd). Algorithm matches the standard Adler-32 SIMD-friendly
+chunked implementation; arithmetic bounds verified (CHUNK_SIZE*MOD <
+2^32). Tests cover empty, zeros, ones, mixed, Wikipedia vector, and
+BufRead resume. Rating: strong.

@@ -90,3 +90,63 @@ comment: |-
 -fvpk4iffYdPFtvJMnqWS0nv9WmJf-b3pYqKIjkMP7PQ831al06uMO3WHZrFYmybYPJ68uU7K30FJfPmKl5WDg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T10:15:30+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: adler2
+  version: 2.0.1
+  revision: 89a031a0f42eeff31c70dc598b398cbf31f1680f
+  digest: xAuHDrz_SkzqnoJ6i6czhhdqKAADsTUBlNcl1EA_n5I
+review:
+  thoroughness: high
+  understanding: high
+  rating: strong
+comment: |-
+  Small (~440 LoC) clean-room Adler-32 checksum implementation, the
+  community-maintained fork of jonas-schievink/adler after the
+  original was archived in 2024. The crate is depended on transitively
+  by miniz_oxide/flate2 and (via `rustc-dep-of-std`) by libstd's
+  panic backtrace code, so it has had wide exposure.
+  
+  Concern #1 (malicious/suspicious): `build = false` in Cargo.toml
+  (no build.rs), no proc-macro, no `include_bytes!`, no
+  Command/syscalls, no network, no obfuscation. Zero runtime deps;
+  the only declared dependency is an optional
+  `rustc-std-workspace-core` (gated on the `rustc-dep-of-std`
+  feature, only enabled when built as part of libstd). License is
+  permissive (0BSD OR MIT OR Apache-2.0), repository link is valid,
+  authors are plausible (oyvindln is a long-time miniz_oxide
+  contributor).
+  
+  Concern #2 (unsafe + SAFETY): N/A - `#![forbid(unsafe_code)]` at
+  src/lib.rs:16, and grep across the crate confirms zero `unsafe`
+  occurrences outside that forbid line and a doc bullet.
+  
+  Concern #3 (miri): N/A - no unsafe code to check.
+  
+  Concern #4 (correctness): Walked the algorithm in src/algo.rs. The
+  chunked SIMD-friendly implementation processes 4 bytes at a time
+  with CHUNK_SIZE = 5552*4 = 22208 bytes between modulus reductions.
+  Bounds: a, b are kept < MOD (65521) between calls; inside a chunk
+  the worst-case growth of b is CHUNK_SIZE*MOD = ~1.45e9, comfortably
+  below 2^32. The `b += CHUNK_SIZE as u32 * a` at algo.rs:72 and the
+  `b_vec.0[3] += (MOD - a_vec.0[3]) * 3` finalization at algo.rs:92
+  both stay in range. Public API surface is minimal. The BufRead
+  loop in lib.rs:206 correctly terminates on empty buffer and bubbles
+  read errors. Tests cover empty, zeros, ones, mixed, the Wikipedia
+  reference vector, resume via `from_checksum`, and BufRead refill
+  paths. No off-by-one, overflow, or panic-on-input issues found.
+  
+  Did NOT run any code (no cargo build/test/expand) per project
+  rules.
+----- SIGN CREV PROOF -----
+AaUEW-4bcGNLefswSLOHj1hhE9NotaKF-_hZEgXdAHgKoYJJAFJ2dj5dtZP9_raMEX9KoIBGW3e_B6HzrGQbAw
+----- END CREV PROOF -----
+
