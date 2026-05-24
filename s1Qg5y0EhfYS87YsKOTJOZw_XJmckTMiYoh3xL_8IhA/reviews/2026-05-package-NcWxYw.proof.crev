@@ -547,3 +547,60 @@ comment: |-
 eLiJxryvdONYfeNY1IIb5weQ_AJWD3i1B8hl0h4x3N35fDtsRwhniRm_S5E1LttE0lFrfAY9bwwaqYvZRwu2BA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T23:19:42.805814+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: anyhow
+  version: 1.0.100
+  revision: 18c2598afa0f996f56217ef128aa3a20ea1e9512
+  digest: x-huzRu3pb-2Vyd63Tw49yQFVTFU9EsdpmWRSMyPEJQ
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+comment: |-
+  Read every .rs file under src/, plus Cargo.toml, build.rs, README, and
+  the GitHub Actions CI workflow. Authored by dtolnay; widely used.
+  
+  build.rs (concern #1): only rustc version probing and feature
+  detection. compile_probe runs rustc against src/nightly.rs in a
+  scratch subdir of OUT_DIR (created and then removed) to detect the
+  unstable error_generic_member_access feature. No network access,
+  no writes outside OUT_DIR, no shelling out beyond rustc. Output is
+  restricted to cargo:rustc-cfg / rustc-check-cfg println directives.
+  process::exit(1) is reached only on its own cleanup or env failures.
+  
+  unsafe (concerns #2 and #3): 121 `unsafe` occurrences across 7 files.
+  The crate uses a manual thin-pointer vtable for `Error` (src/error.rs,
+  src/ptr.rs) so anyhow::Error is one word wide. Every unsafe fn and
+  unsafe block I read has a preceding `// Safety:` comment naming the
+  invariant ("requires layout of *e to match ErrorImpl<E>",
+  "MessageError is repr(transparent) so it is okay to cast…", "passing
+  vtable that operates on the right type", etc.). The pattern is
+  internally consistent: each vtable is built alongside the typed
+  ErrorImpl<E> and cast targets match. repr(C) on ErrorImpl /
+  ContextError pins field order so the vtable lookup at error.rs:1068
+  is sound. ensure.rs::Buf uses str::from_utf8_unchecked on bytes it
+  just wrote via a fmt::Write that only accepts &str — sound.
+  CI runs `cargo miri test` with MIRIFLAGS=-Zmiri-strict-provenance
+  (.github/workflows/ci.yml lines 124-136), so the vtable / pointer
+  arithmetic is exercised under miri. No cap applied.
+  
+  Concern #4 (correctness): no bugs found. The downcast machinery
+  uses ManuallyDrop carefully to avoid double-drops; the
+  context_chain_drop_rest recursion at error.rs:1016 correctly
+  forwards the target TypeId down the chain.
+  
+  Cargo.toml: dual MIT/Apache-2.0, repository link present, version
+  matches crate contents, only optional dep is `backtrace`.
+----- SIGN CREV PROOF -----
+QH-gdiszjfLhS2HVrQZR6-rxsMasbWppkZyaKNzlJmNtiDWcIzfMGOVkeJdP03p7QttpqcxGqcjC4UeNKS2dAQ
+----- END CREV PROOF -----
+
