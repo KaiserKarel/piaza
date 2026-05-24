@@ -1,0 +1,8 @@
+[package]
+name = "repro-anes-0_1_6-arrow-key-modifiers-ignored"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anes = { version = "=0.1.6", features = ["parser"] }

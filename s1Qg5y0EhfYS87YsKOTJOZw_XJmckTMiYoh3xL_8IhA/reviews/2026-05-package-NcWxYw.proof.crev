@@ -411,3 +411,87 @@ comment: |-
 0b7M10aIgMAOvEEG_qgk-OVrG7geZ_o3i5UsYG08ZphaLXO352tXrAfAqJV_G5-sOpD4EXspdwnr4UzAM-MHDg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T22:35:42.264393+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: anes
+  version: 0.1.6
+  revision: 378ac7461ecac29fde9e10df7b08359d1315a9ad
+  digest: Q86nRQxGYFuIXQ-guDMKmEwy3UNFe28LB-ZwGkqMCjU
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: arrow-key-modifiers-ignored
+  severity: medium
+  comment: |
+    `Parser` returns `KeyModifiers::empty()` for standard xterm
+    cursor-key-with-modifier sequences (`ESC[1;5A` for Ctrl+Up,
+    `ESC[1;2A` for Shift+Up, etc.). Root cause:
+    `parse_csi_arrow_key_modifiers` indexes the wrong parameter
+    and then `saturating_sub(48)` the already-numeric value as if
+    it were an ASCII digit. No memory or safety impact; just
+    wrong output for a feature the crate advertises.
+    Reproduction: repros/anes/0.1.6/arrow-key-modifiers-ignored/
+comment: |-
+  ANSI escape-sequence provider + parser, ~3k LOC of pure Rust. Read
+  every .rs file under src/, plus Cargo.toml, README, all integration
+  tests, and the examples.
+  
+  Supply-chain surface:
+    - No build.rs.
+    - No proc-macro (Cargo.toml has no `proc-macro = true`).
+    - One optional dep: bitflags 1.2 (only for the `parser` feature).
+    - No `unsafe` in src/. The only `unsafe` is in examples/parser.rs
+      around libc::tcsetattr / cfmakeraw — examples aren't published.
+    - No I/O, no network, no env-var reads. Sequences are just `Display`
+      impls; the parser is a pure byte->state-machine.
+  
+  Concern #2 / #3 (unsafe): N/A — no `unsafe` ships in the library.
+  
+  Concern #4 (correctness): one real bug found.
+  
+  `parse_csi_arrow_key_modifiers` in src/parser/parsers.rs:65-67 is
+  inert for real-world input. It is called as
+  `parse_csi_arrow_key_modifiers(parameters.first().cloned())` for
+  CSI A/B/C/D (cursor keys). For the standard xterm modifier sequence
+  `ESC [ 1 ; <m> <letter>`, `parameters.first()` is the cursor-key id
+  (always 1), not the modifier. The function then applies
+  `saturating_sub(48)` to that integer — as if it were an ASCII digit —
+  producing 0, which maps to `KeyModifiers::empty()`. Net effect:
+  Shift/Ctrl/Alt+Arrow are silently dropped.
+  
+  The crate's own test (`tests/parser/key.rs:40` `csi_arrow_key_modifiers`)
+  hides this by using non-standard inputs `\x1B[50A` and `\x1B[53A`,
+  which only "work" because 50-48=2 and 53-48=5. No terminal emits
+  those.
+  
+  Repro: repros/anes/0.1.6/arrow-key-modifiers-ignored/
+  
+  Minor notes (not rating-impacting):
+    - Engine accumulates u64 params with `saturating_mul(10)` /
+      `saturating_add` — good defensive choice.
+    - `parse_csi_xterm_mouse` does `parameters[1] as u8` and column/row
+      `as u16` truncating casts. Mouse-protocol values fit in those
+      widths per spec; no exploitability.
+    - `Parser::advance` writes `idx < len - 1 || more` inside the
+      `enumerate` loop body. `len - 1` is only evaluated when the loop
+      iterates, so an empty buffer is fine.
+  
+  Rating: neutral — the cursor-key modifier path is a documented
+  feature (per the function name and the test) that does not work
+  against real terminal input. Crate is still useful for the
+  sequence-generation side (the Display impls) and for the rest of
+  the parser (CSI tilde keys, mouse, cursor position, UTF-8).
+----- SIGN CREV PROOF -----
+DBAzEu6NcgswS2AuH7uSnHpWIOOj5W2inDNXEQzW6MQWOf-feyt3Q6qBop9gEN1_KsX6MdSFl1q8rBOB2x-3CA
+----- END CREV PROOF -----
+
