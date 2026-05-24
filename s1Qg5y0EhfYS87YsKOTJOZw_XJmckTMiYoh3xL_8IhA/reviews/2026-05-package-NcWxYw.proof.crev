@@ -1102,3 +1102,73 @@ comment: |-
 iOQXnDuRkFXu2qAGNVDKyhkiDtRBlKb4a4u3bYWyRj1YKHYHSyY8CnhX03KQGiwke2jI_hnN5ESYg2hliOtwAg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T00:40:18.190648+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: backtrace
+  version: 0.3.76
+  revision: 775f6a1ba62e7d35a1fac76e64c61d9d4687b5f2
+  digest: m82nvETcgk9vxltYWB0Mpu4LsBSi6P38lu7eHNRkICo
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: strong
+comment: |-
+  Reviewed every `.rs` file under `src/` (~7,800 LoC across 38 files) plus
+  Cargo.toml, README, CI workflows. Maintained by The Rust Project Developers
+  (rust-lang/backtrace-rs); this crate is used by std itself to print panic
+  backtraces. License MIT OR Apache-2.0. No `build.rs` (`build = false`), no
+  proc-macros. Deps are all standard ecosystem crates (cfg-if, rustc-demangle,
+  addr2line, gimli, object, miniz_oxide, libc, windows-link; optional
+  cpp_demangle, serde, ruzstd) — no typo-squats.
+  
+  Concern #1 (malicious/suspicious): nothing. No network I/O, no obfuscation,
+  no `include_bytes!` blobs, no shell-outs. Filesystem reads are scoped to
+  symbolication: opening the running executable / loaded shared libs for
+  mmap, reading `/proc/self/maps` to identify the current exe, probing for
+  `*.dSYM`, `.dwp`, `.gnu_debuglink`. All consistent with the stated purpose.
+  
+  Concern #2 (unsafe without SAFETY): the crate has ~190 `unsafe` occurrences,
+  largely unavoidable — FFI to libunwind/_Unwind_Backtrace, dbghelp, mmap,
+  dlopen/dl_iterate_phdr, _dyld_*, loadquery, RtlVirtualUnwind. Most blocks
+  have SAFETY comments or surrounding doc-comments explaining invariants;
+  some FFI wrappers rely on the function-level "Safety" doc instead of a
+  per-block `// SAFETY:` line, but the rationale is consistently stated.
+  The `lock` module in `lib.rs` is explicitly documented as "partially
+  unsound" with a candid explanation — it's crate-private and used in the
+  documented pattern. The `Stash` arena in `symbolize/gimli/stash.rs` uses
+  `UnsafeCell<Vec<Vec<u8>>>` with sound reasoning (inner `Vec<u8>` heap
+  allocations are stable across outer-Vec reallocations).
+  
+  Concern #3 (miri): `.github/workflows/main.yml` runs a dedicated `miri` job:
+  `MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test`. There's also a
+  Miri-specific backend (`backtrace/miri.rs`, `symbolize/miri.rs`) selected
+  via `cfg(miri)` so the test suite exercises the non-FFI paths under miri.
+  FFI paths (libunwind, dbghelp, dl_iterate_phdr) aren't miri-testable but
+  that's a fundamental miri limitation, not a gap in the crate's hygiene.
+  
+  Concern #4 (functional correctness): no bugs found. Pointer arithmetic
+  uses `wrapping_add`/`wrapping_sub` in the AVMA<->SVMA translation
+  (`symbolize/gimli.rs::avma_to_svma`) with an explicit comment about
+  overflow seen in the wild (issue #329). `parse_running_mmaps_unix.rs`
+  has thorough unit tests for 32/64-bit `/proc/self/maps` parsing including
+  paths with spaces. The `lru.rs` `MaybeUninit`-based LRU cache carefully
+  maintains its `len` invariant. ELF/Mach-O/PE/XCOFF parsers all funnel
+  malformed-input errors through `?` to `None`.
+  
+  Caveats: only inspected source statically (per project rules — no
+  compilation, no test execution). Coverage breadth here trades off against
+  per-block scrutiny of every `unsafe` SAFETY comment; spot-checked the
+  high-traffic ones (libunwind callback, gimli mmap lifetime extension,
+  Stash arena, Lru, libs_macos dyld walk, libs_dl_iterate_phdr callback).
+----- SIGN CREV PROOF -----
+z2_UPKHPE8tuYsPiqSAQ_XB7Xh067eZQFQzizc5-I36VUGsk0vEPnt9mO4fJxChO6IVshSELTkGpvP0a_1fvBQ
+----- END CREV PROOF -----
+
