@@ -318,3 +318,96 @@ comment: |-
 fYDzvfGYQiycm1l9bT5OPX4JuIAj9oR-G-IFoPA5H090GEucmGHiRSbq-5umEH2769qxzkyYdksHDAKZuxqJAA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T10:22:44+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: allocator-api2
+  version: 0.2.21
+  revision: 63cd7fcc2f8854b5821c7054d026e8a4647acde1
+  digest: DwR6VgEd9XHm8RRoBZP01L6LJC0TRcxIRisy43fvdIw
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+issues:
+- id: missing-safety-comments-in-boxed-and-raw_vec
+  severity: medium
+  comment: |
+    Many `unsafe { ... }` blocks lack the `// SAFETY:` justification
+    that the upstream rust-lang/rust copy carries. Concrete examples
+    in src/stable/boxed.rs: lines 368 (Box::new_in's write+
+    assume_init), 395 (try_new_in equivalent), 472
+    (try_new_uninit_in's Box::from_raw_in), 545 (try_new_zeroed_in
+    equivalent), 571 (Box<[T;1]> cast). 75 unsafe blocks but only
+    1 SAFETY comment in that file. src/stable/raw_vec.rs has 8
+    unsafe blocks and zero SAFETY comments (lines 243, 279, 299,
+    338, 471, 543, 579). Caps rating at neutral per rubric §2.
+- id: no-ci-config-in-tarball
+  severity: low
+  comment: |
+    Published tarball contains no .github/ or CI config files (the
+    `exclude` field in Cargo.toml.orig isn't visible in the
+    normalized Cargo.toml, but the effect is the same). Cannot
+    verify whether upstream CI runs miri without leaving the source
+    snapshot. Treating as "no observable miri" per rubric §3; caps
+    independently at positive but dominated by §2.
+comment: |-
+  This crate mirrors Rust's unstable `allocator_api` for use on
+  stable. The README states upfront that "the code is mostly verbatim
+  copy from rust repository. Mostly attributes are removed." It is
+  depended on by hashbrown (when not using std) and a number of
+  alternative allocator/collection crates.
+  
+  Concern #1 (malicious/suspicious): `build = false` (no build.rs),
+  no proc-macro, no `include_bytes!`, no Command/syscalls, no
+  network. Dependencies: only optional `serde`. Features cleanly
+  partition std/alloc/no_alloc and nightly (which re-exports
+  core/alloc directly via src/nightly.rs). License MIT OR
+  Apache-2.0. Author zakarumych is the maintainer of rendy and a
+  long-time gfx-rs contributor; repository link valid.
+  
+  Concern #2 (unsafe + SAFETY): 277 `unsafe` occurrences across 12
+  files, 54 `// SAFETY:` comments. Coverage is uneven:
+  - src/stable/alloc/mod.rs (the Allocator trait): well-commented.
+    Every unsafe block has a preceding SAFETY: comment.
+  - src/stable/boxed.rs (2272 lines, 75 unsafe blocks): only 1
+    SAFETY: comment. Stripped from the std original.
+  - src/stable/raw_vec.rs (642 lines, 8 unsafe blocks): zero
+    SAFETY: comments.
+  - src/stable/vec/mod.rs (3232 lines, 56 unsafe blocks): 17
+    SAFETY: comments — partial.
+  Because this is allocation-adjacent code (raw_vec, Box, Vec), the
+  missing SAFETY annotations are particularly worth flagging: this
+  is exactly where bad assumptions become use-after-free or
+  uninitialised reads. Per rubric §2 this caps the rating at
+  neutral.
+  
+  Concern #3 (miri): No CI config in the published tarball; cannot
+  verify miri usage from source alone. The unsafe here is almost
+  entirely pure-Rust pointer manipulation (raw pointers,
+  MaybeUninit, NonNull, ptr::copy_nonoverlapping) — exactly the
+  flavour miri excels at. Treating as no observable miri; caps at
+  positive, dominated by §2.
+  
+  Concern #4 (correctness): The crate is structurally a port of
+  alloc's Box/Vec/RawVec/etc, which has been extensively audited
+  upstream. Spot-checked the Allocator trait's default grow/shrink
+  implementations (alloc/mod.rs:196-285) and the size_of==0 ZST
+  branch in Box::try_new_uninit_in (boxed.rs:465-472) — both match
+  the upstream pattern. Did NOT attempt to walk all 8028 lines for
+  drift; that would require a side-by-side with a specific std
+  revision. Thoroughness medium accordingly.
+  
+  Did NOT run any code (no cargo build/test/expand) per project
+  rules.
+----- SIGN CREV PROOF -----
+0b7M10aIgMAOvEEG_qgk-OVrG7geZ_o3i5UsYG08ZphaLXO352tXrAfAqJV_G5-sOpD4EXspdwnr4UzAM-MHDg
+----- END CREV PROOF -----
+

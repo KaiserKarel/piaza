@@ -1,0 +1,36 @@
+# Review log: allocator-api2 0.2.21
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate allocator-api2 0.2.21`
+- **Started (UTC):** 2026-05-24T10:22:00Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+Reviewed by Opus 4.7 via manual /review-crate invocation. The crate
+mirrors Rust's unstable `allocator_api` (the README explicitly says
+"mostly verbatim copy from rust repository"). 17 .rs files, ~8k
+lines total; biggest are boxed.rs (2272), vec/mod.rs (3232),
+raw_vec.rs (642).
+
+Findings:
+- No build.rs, no proc-macro, no Command/network/include_bytes!
+- 277 `unsafe` occurrences, 54 `// SAFETY:` comments
+- src/stable/alloc/mod.rs (the Allocator trait) has well-written
+  SAFETY comments at every unsafe block
+- src/stable/boxed.rs has 75 unsafe blocks (excluding doctests) but
+  only 1 SAFETY: comment — many obvious cases stripped from the std
+  original (e.g. lines 368, 395, 472, 545, 571)
+- src/stable/raw_vec.rs has 8 unsafe blocks and zero SAFETY:
+  comments
+- Published tarball contains no CI config (no .github), so miri
+  presence in upstream CI cannot be verified from the source bytes
+  alone; assuming none for the rating
+- Cargo.toml gates pure-`alloc` vs nightly behind features cleanly;
+  `nightly` feature re-exports core/alloc directly
+- Optional serde dep; license MIT OR Apache-2.0; author zakarumych
+  (rendy/gfx-rs)
+- Rating: neutral. Capped by missing SAFETY comments throughout
+  boxed.rs and raw_vec.rs (rubric §2). Independent §3 cap (no
+  observable miri) also lands at positive. Neutral dominates.
