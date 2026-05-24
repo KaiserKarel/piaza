@@ -753,3 +753,65 @@ comment: |-
 3QaQzFc-jnQJjc9onpiTHlLAi10_BO0ZJCMsFrvSliFyYbvyTJiFp7xDBWZ0B00vZKRL1AhHveYfrgylmSVnDQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T00:06:59.270174+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: arrayref
+  version: 0.3.9
+  revision: f8d0299d863922db6c409d08098941e833b70d69
+  digest: ajObBdoQl0EITpwV4ZqwGhF3cJFVspfmhNyVrhwhaCE
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+comment: |-
+  Tiny `no_std` crate: a single `src/lib.rs` (~500 lines) exposing four
+  declarative macros (`array_ref!`, `array_refs!`, `mut_array_refs!`,
+  `array_mut_ref!`) that turn slices/array refs into fixed-size array
+  references via raw-pointer casts. No `build.rs`, no proc macros, no
+  network / filesystem I/O, no `include_bytes!`, no obfuscation, no
+  runtime dependencies (only `quickcheck` as dev-dep). Cargo.toml
+  metadata is clean: BSD-2-Clause, repo at github.com/droundy/arrayref.
+  
+  Concern #1 (malicious): nothing found.
+  
+  Concern #2 (unsafe w/o SAFETY): six `unsafe fn` / `unsafe { }` sites
+  (lib.rs:61, 67, 112, 134, 144, 154, 209, 231, 241, 251, 287, 293).
+  None has a `// SAFETY:` comment. The invariants are obvious to a
+  reader (the surrounding macro guarantees the slice has the right
+  length, either via a preceding `&arr[off..off+len]` bounds-check or
+  via the const-sized `&[T; sum]` parameter type), but the convention
+  is still absent. Caps the rating at `neutral`.
+  
+  Concern #3 (no miri): CI is `.github/workflows/rust.yml` running only
+  `cargo build` + `cargo test` on ubuntu-latest. No miri, no clippy, no
+  cross-platform. The unsafe is pure pointer arithmetic and would be
+  miri-testable. Caps at `positive` on its own; combined with #2 the
+  effective cap is `neutral`.
+  
+  Concern #4 (correctness): walked each macro. In the `..` arms of
+  `array_refs!` / `mut_array_refs!` the order is `let var_len = a.len()
+  - MIN_LEN;` then `assert!(a.len() >= MIN_LEN)`. The subtraction
+  underflows when the input is too small, but in debug builds the
+  overflow check panics and in release builds `var_len` wraps and the
+  following assert still fires before any UB occurs, so this is a code
+  smell rather than a bug. `array_ref!` slices with `&$arr[offset..
+  offset+$len]` first, so any OOB / overflow turns into a panic from
+  slice indexing (overflowed `offset+len` wraps below `offset`, making
+  start>end which panics). The non-`..` `array_refs!` / `mut_array_refs!`
+  arms take `&[T; sum-of-lens]`, so the size is checked at compile time
+  by the type system. The multiple-`&mut`-from-one-`&mut [T;N]` pattern
+  in `mut_array_refs!` is the standard `split_at_mut`-style trick over
+  non-overlapping ranges of a fresh `*mut`, which is sound. No
+  reproducible bugs found.
+----- SIGN CREV PROOF -----
+RUdvtT1WeDm5MnpLaEoZnPKVSTcRf37VdV66WetaOSlGF8kfhfBQxFFzfOhY81ou9Mcpvg6PHqCY8tne26jBAw
+----- END CREV PROOF -----
+
