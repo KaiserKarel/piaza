@@ -24,3 +24,11 @@ lockfile = "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/Cargo.lo
 name = "tokio"
 git = "https://github.com/tokio-rs/tokio"
 ref = "master"
+
+[[target]]
+name = "bun"
+# bun does commit a Cargo.lock at the workspace root; using it directly
+# avoids `cargo generate-lockfile`, which fails because bun has path-deps
+# into vendor/lolhtml/c-api (a CMake-fetched directory not present in a
+# fresh clone).
+lockfile = "https://raw.githubusercontent.com/oven-sh/bun/main/Cargo.lock"

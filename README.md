@@ -41,44 +41,87 @@ crate runs on your machine. So the reviewer must never run the crate.
 - The reviewer reads the source. That's it. No tests, no examples, no
   shelling out to anything the crate ships.
 
-## Bootstrap
+## Harnesses
 
-```sh
-./scripts/bootstrap.sh https://github.com/<you>/piaza
+A *harness* is a (model, slash-command, crev-identity) triple. Each
+harness gets its own cargo-crev key so consumers can choose which to
+trust independently: maybe you trust Opus 4.7's default harness but not
+Sonnet 4.6, or you trust the deep-scan harness more than the default
+because it does longer runs.
+
+Harnesses are declared in `harnesses.toml`:
+
+```toml
+[harnesses.opus-4-7-default]
+model = "claude-opus-4-7"
+review_command = "/review-crate"
+id = "s1Qg5y0E..."
 ```
 
-This installs `cargo-crev` and creates a new crev ID whose proof-repo
-URL is this repo. Pick a strong passphrase and store it in your secret
-manager — the scheduled agent reads it from `$CREV_PASSPHRASE`.
+Slug convention is `<model-alias>-<harness-name>`. The slug appears in
+commit messages and as the filename of the per-review log file.
+
+## Bootstrap
+
+One-time install:
+
+```sh
+./scripts/bootstrap.sh install
+```
+
+Then add a harness — this creates a new cargo-crev identity and appends
+it to `harnesses.toml`:
+
+```sh
+./scripts/bootstrap.sh add-harness opus-4-7-default claude-opus-4-7
+```
+
+Pick a strong passphrase when prompted. Store it as `$CREV_PASSPHRASE`
+(or `$CREV_PASSPHRASE_OPUS_4_7_DEFAULT` for a per-harness override) so
+the scheduled agent can sign.
 
 ## Running a tick by hand
 
 ```sh
 export CREV_PASSPHRASE="..."
+
 # See what's pending
 ./scripts/tick.sh enumerate | head
 
-# Run a single review (Claude does the work)
+# Run one review interactively (the harness is whatever ID is currently
+# active in cargo-crev; tick.sh switches as needed below).
 claude -p "/review-crate serde 1.0.219"
 
-# Or run a full tick of N crates
-claude -p "/review-tick 5"
+# Or run a tick of N reviews under a specific harness — the cron-
+# equivalent entry point. tick.sh switches the crev ID, picks pending
+# crates, then spawns one `claude -p` per crate so each review gets a
+# fresh context.
+./scripts/tick.sh run opus-4-7-default 5
 ```
 
-Each successful review produces exactly one commit in `proofs/`.
+Each successful review produces exactly one commit bundling the proof
+and its matching log file.
+
+## Logs
+
+Every per-crate review writes a tracked log at
+`review-logs/<crate>/<version>/<harness>.log`. Each log opens with a
+markdown header (harness, model, slash command, started timestamp,
+crev ID) followed by Claude's full output. These logs are committed
+alongside the proof — anyone auditing a proof can read the exact
+reasoning that produced it.
 
 ## Scheduling
 
-The cron is a Claude scheduled agent (see the `/schedule` skill). Once
-the repo is pushed and `$CREV_PASSPHRASE` is set in the scheduled
-agent's environment, schedule:
+The cron is a Claude scheduled agent (see the `/schedule` skill). The
+schedule invokes `./scripts/tick.sh run <harness> N`, NOT a Claude
+slash command directly — keeping the outer orchestration in bash means
+we don't burn tokens on "which crate to pick next" (it's deterministic)
+and the cron can't hallucinate. The per-crate `claude -p` calls happen
+from inside `tick.sh`.
 
-```
-/review-tick 10
-```
-
-at whatever cadence you want (daily is fine to start). The agent will
-run the tick, commit each new review, and push.
+Schedule prerequisites: the right `$CREV_PASSPHRASE` env var available
+in the agent's environment, `cargo`, `cargo-crev`, and `claude` on PATH.
 
 ## Repo layout
 
@@ -87,17 +130,19 @@ run the tick, commit each new review, and push.
 ├── AGENTS.md              reviewer rubric + hard safety rules
 ├── README.md              you are here
 ├── targets.toml           list of public Rust projects we cover
-├── .claude/commands/      /review-crate, /review-tick slash commands
+├── harnesses.toml         registered (model, harness) identities
+├── .claude/commands/      /review-crate slash command (only LLM entry point)
 ├── scripts/
-│   ├── bootstrap.sh       one-time setup
+│   ├── bootstrap.sh       install cargo-crev; add-harness <slug> <model>
 │   ├── enumerate-targets.py   fetch lockfiles, emit (name, version, checksum)
 │   ├── fetch-crate.sh     download .crate tarball without invoking cargo
-│   ├── list-reviewed.py   parse proofs/, emit existing reviews
+│   ├── list-reviewed.py   walk <id-hash>/reviews/, emit existing reviews
 │   ├── is-reviewed.sh     thin wrapper: is (name, version) already reviewed?
-│   ├── tick.sh            orchestrate one cron tick (data only — no Claude)
+│   ├── tick.sh            cron entry: switch crev id, spawn claude -p per crate
 │   ├── write-proof.sh     hand prepared YAML to cargo-crev for signing
-│   └── commit-proof.sh    one commit per review
-├── proofs/                cargo-crev proof tree (populated by `cargo crev id new`)
+│   └── commit-proof.sh    one commit per review (bundles proof + log)
+├── <id-hash>/reviews/     cargo-crev proof tree (one dir per registered identity)
+├── review-logs/           tracked per-review logs: <crate>/<version>/<harness>.log
 └── repros/                bug reproductions, one Cargo project per finding
 ```
 

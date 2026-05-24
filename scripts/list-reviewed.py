@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Emit `name<TAB>version<TAB>digest` for every existing package-review proof.
 
-This is the source of truth for "is crate X@Y already reviewed?". We walk
-`proofs/` (the cargo-crev proof tree) and parse each `*.proofs.crev` file.
+This is the source of truth for "is crate X@Y already reviewed?". We glob
+`<id-hash>/reviews/*.proof.crev` at the repo root — cargo-crev's layout
+puts proofs under a per-reviewer-identity directory at the repo root, not
+under a `proofs/` subdir.
 
-A proofs.crev file is a sequence of blocks framed like:
+A proof.crev file is a sequence of blocks framed like:
 
     -----BEGIN CREV PACKAGE REVIEW-----
     <yaml body>
@@ -24,7 +26,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PROOFS_DIR = REPO_ROOT / "proofs"
+# cargo-crev stores proofs as <id-hash>/reviews/<date>.proof.crev at the
+# repo root. We don't know the id-hash ahead of time (it varies per
+# reviewer identity), so glob for it.
+PROOFS_GLOB = "*/reviews/*.proof.crev"
 
 BODY_RE = re.compile(
     r"-----BEGIN CREV PACKAGE REVIEW-----\n(.*?)\n-----BEGIN CREV PACKAGE REVIEW SIGNATURE-----",
@@ -64,10 +69,8 @@ def extract_pkg_field(body: str, field: str) -> str | None:
 
 
 def main() -> int:
-    if not PROOFS_DIR.exists():
-        return 0  # no proofs yet, nothing to emit
     seen: set[tuple[str, str, str]] = set()
-    for proof_file in PROOFS_DIR.rglob("*.proofs.crev"):
+    for proof_file in REPO_ROOT.glob(PROOFS_GLOB):
         text = proof_file.read_text(encoding="utf-8", errors="replace")
         for match in BODY_RE.finditer(text):
             body = match.group(1)

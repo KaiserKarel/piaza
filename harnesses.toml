@@ -1,0 +1,26 @@
+# Review harnesses — one entry per (model, harness) combination.
+#
+# Each harness gets its own cargo-crev identity so consumers can choose
+# which to trust. A "harness" is a triple of (slug, model, slash-command).
+# The slug is the visible identifier in commit messages and log file
+# paths; by convention `<model-alias>-<harness-name>` (e.g.
+# `opus-4-7-default`, `opus-4-7-deepscan`, `sonnet-4-6-default`), but
+# treated as opaque by the tooling. Pick something stable.
+#
+# `model`           — string passed to `claude -p --model`. Use the full
+#                     canonical name for clarity.
+# `review_command`  — slash command invoked per crate. Most harnesses
+#                     use `/review-crate`; a heavier harness might point
+#                     at a different command with a more thorough prompt.
+# `id`              — crev ID hash (from `cargo crev id current`). Filled
+#                     in by `./scripts/bootstrap.sh add-harness`. Do not
+#                     hand-edit; regenerating an identity changes the hash
+#                     and invalidates all proofs signed by the old one.
+#
+# To add a harness:
+#   ./scripts/bootstrap.sh add-harness <slug> <model> [<slash-command>]
+
+[harnesses.opus-4-7-default]
+model = "claude-opus-4-7"
+review_command = "/review-crate"
+id = "s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA"

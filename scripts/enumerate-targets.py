@@ -47,20 +47,31 @@ def run(cmd: list[str], cwd: Path | None = None) -> None:
 def ensure_clone(name: str, url: str, ref: str) -> Path:
     """Idempotently shallow-clone `url` @ `ref` into the repos cache.
 
-    If the clone already exists, fetch the ref and reset to it so we always
-    enumerate against the latest pinned ref. We use blob filtering to keep
-    the clone small — we only need source trees, not full history.
+    We recurse submodules because some targets (e.g. bun) have workspace
+    members that path-depend on vendored Rust code stored in submodules.
+    Without those submodule trees on disk, `cargo generate-lockfile`
+    fails to read the path-dep's Cargo.toml.
+
+    All clones use blob filtering + shallow depth to keep the cache small;
+    we never need full history, only the current tree.
     """
     REPOS_CACHE.mkdir(parents=True, exist_ok=True)
     dest = REPOS_CACHE / name
     if not (dest / ".git").exists():
         if dest.exists():
             shutil.rmtree(dest)
-        run(["git", "clone", "--filter=blob:none", "--no-tags",
-             "--depth=1", "--branch", ref, url, str(dest)])
+        run([
+            "git", "clone",
+            "--filter=blob:none", "--no-tags", "--depth=1", "--branch", ref,
+            "--recurse-submodules", "--shallow-submodules",
+            url, str(dest),
+        ])
     else:
         run(["git", "fetch", "--depth=1", "--no-tags", "origin", ref], cwd=dest)
         run(["git", "reset", "--hard", "FETCH_HEAD"], cwd=dest)
+        # Bring submodules in line with the freshly-reset superproject.
+        run(["git", "submodule", "update", "--init", "--recursive",
+             "--depth=1", "--filter=blob:none"], cwd=dest)
     return dest
 
 
