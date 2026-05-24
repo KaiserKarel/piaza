@@ -1052,3 +1052,53 @@ comment: |-
 Z6IrObNy0g8kVc3X3mjIFN1zQ8vtwv3uymBPyKD7gQZkRGJgYhQ_iFE3dDsyKYl_Yj9hQQi6wvVbIAkIuMLSDA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T00:35:13.860437+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: autocfg
+  version: 1.5.1
+  revision: 2799b09c24e6632f8e653c5cd8fc303e85a906ba
+  digest: PGKnHP4gg-uK5cgkZZ2OPwa2xgPW8hqPOXE0tufcsz8
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Reviewed as a delta against 1.5.0. The on-disk diff between 1.5.0 and 1.5.1 is
+  test-only: src/ (lib.rs, rustc.rs, version.rs, error.rs, tests.rs) is byte-
+  identical, Cargo.toml gains `harness = false` for the `wrappers` test, the
+  shell script tests/wrap_ignored is removed, and tests/wrappers.rs is rewritten
+  as a harness-free binary that uses `env::current_exe()` as its own "ignored"
+  rustc wrapper instead of invoking the deleted shell script. README adds the
+  1.5.1 changelog entry confirming this ("Refactor the `test_wrappers` test
+  without any shell script").
+  
+  Concern #1 (supply chain): no new behavior reaches consumers. Tests are not
+  published to dependents and no library code, build script, or proc-macro is
+  altered. Cargo.toml still has `build = false`, no proc-macro, zero runtime
+  deps. License (Apache-2.0 OR MIT), repository, and authorship unchanged.
+  
+  Concern #2 / #3 (unsafe + miri): the crate contains no `unsafe`; grep across
+  src/ returns zero hits. Concerns #2 and #3 don't apply, same as 1.5.0.
+  
+  Concern #4 (correctness): nothing in the diff changes library semantics.
+  The new tests/wrappers.rs has a small main() that dispatches on argv: with no
+  args it runs `test_wrappers()` (only on unix); with args it impersonates a
+  no-op rustc wrapper, printing a known release string for `--version` and
+  draining stdin on `-`. The new `wrap_ignored` step uses `env::current_exe()`
+  rather than `./tests/wrap_ignored`; the test binary itself is the wrapper, so
+  no shell script is needed. This is purely a test refactor.
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules. Rating
+  inherited from 1.5.0: positive.
+----- SIGN CREV PROOF -----
+iOQXnDuRkFXu2qAGNVDKyhkiDtRBlKb4a4u3bYWyRj1YKHYHSyY8CnhX03KQGiwke2jI_hnN5ESYg2hliOtwAg
+----- END CREV PROOF -----
+
