@@ -1,0 +1,32 @@
+# Review log: aho-corasick 1.1.3
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate aho-corasick 1.1.3`
+- **Started (UTC):** 2026-05-24T10:19:00Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+Reviewed by Opus 4.7 via manual /review-crate invocation (batched
+multi-crate request; tick.sh was not used). Inspected 32 .rs files
+under src/, Cargo.toml, README.md, DESIGN.md, .github/workflows/ci.yml.
+
+Key findings:
+- No build.rs, no proc-macro, no Command/network/include_bytes!
+- 227 `unsafe` occurrences but most are `unsafe fn` decls with
+  rustdoc `# Safety` (SIMD/Teddy intrinsics over __m128i/__m256i/
+  uint8x16_t); core algorithm code (dfa/nfa/automaton) uses only
+  `unsafe trait Automaton` + `unsafe impl` with justifying comments
+- Several `unsafe { ... }` call sites in packed/teddy/builder.rs
+  (lines 482, 546, 618, 748) and the dozens of test fixtures in
+  packed/vector.rs lack the literal `// SAFETY:` prefix even though
+  the feature-detection guard immediately above IS the safety
+  invariant
+- CI does not run miri (.github/workflows/ci.yml runs cargo test on
+  matrix of OS/arch/Rust versions, no miri job)
+- Pure-Rust unsafe (e.g. packed/ext.rs::distance, packed/pattern.rs::
+  is_equal_raw call) is miri-testable; SIMD intrinsics are not
+- Author: BurntSushi (Andrew Gallant), license Unlicense OR MIT
+- Rating: neutral (capped by missing literal SAFETY comments per
+  rubric §2; neutral dominates the §3 cap of positive).

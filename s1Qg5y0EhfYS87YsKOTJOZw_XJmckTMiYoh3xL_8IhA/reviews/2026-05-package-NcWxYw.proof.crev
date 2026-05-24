@@ -150,3 +150,107 @@ comment: |-
 AaUEW-4bcGNLefswSLOHj1hhE9NotaKF-_hZEgXdAHgKoYJJAFJ2dj5dtZP9_raMEX9KoIBGW3e_B6HzrGQbAw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T10:19:19+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: aho-corasick
+  version: 1.1.3
+  revision: 56256dca1bcd2365fd1dc987c1c06195429a2e2c
+  digest: 6VVIijLePYYfYAio9Woq_59DVC7vhCqUWlwuHk-YSOU
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+issues:
+- id: missing-safety-comments-at-teddy-call-sites
+  severity: low
+  comment: |
+    Several `unsafe { ... }` blocks in packed/teddy/builder.rs lack
+    the literal `// SAFETY:` prefix at the call site, even though
+    the feature-detection guard immediately above is the safety
+    invariant. Specifically: lines 482 (SlimSSSE3::new_unchecked),
+    546 (SlimAVX2::new_unchecked), 618 (FatAVX2::new_unchecked),
+    and 748 (SlimNeon::new_unchecked — no guard at all because Neon
+    is unconditionally available on aarch64 targets where the cfg
+    applies). The dozens of `unsafe { test() }` blocks in
+    packed/vector.rs follow the same pattern. Per rubric §2 this
+    caps rating at neutral; the underlying invariants ARE upheld.
+- id: no-miri-in-ci
+  severity: low
+  comment: |
+    .github/workflows/ci.yml runs cargo test across a matrix of
+    OS/arch/Rust versions but does not invoke `cargo miri test`.
+    The pointer-arithmetic helpers (packed/ext.rs::distance,
+    packed/pattern.rs::is_equal_raw call sites) are miri-testable;
+    the SIMD intrinsics are not. Caps independently at positive;
+    the §2 neutral cap dominates.
+comment: |-
+  Reviewed crate published at version 1.1.3 by Andrew Gallant
+  (BurntSushi). Used pervasively as the multi-pattern search engine
+  underneath `regex`, so this code is exercised by essentially the
+  entire Rust ecosystem. Read all 32 .rs files under src/, Cargo.toml,
+  README.md, DESIGN.md, .github/workflows/ci.yml.
+  
+  Concern #1 (malicious/suspicious): Cargo.toml declares no build
+  script (no `build` field, no build.rs in tarball). No proc-macro
+  (this is a regular library). No `include_bytes!`, no
+  `std::process::Command`, no network APIs, no obfuscation. The
+  large data table in src/util/byte_frequencies.rs is a documented
+  256-entry byte frequency distribution used for prefilter heuristics
+  (transparent purpose). Dependencies: optional `memchr` (also by
+  BurntSushi) and optional `log`. License Unlicense OR MIT,
+  repository link valid, author plausible.
+  
+  Concern #2 (unsafe + SAFETY): 227 unsafe occurrences across 10
+  files. Concentrated in src/packed/vector.rs (161) and
+  src/packed/teddy/{generic,builder}.rs (52 combined) — the SIMD
+  Teddy implementation. Pattern is overwhelmingly `unsafe fn`
+  declarations with rustdoc `# Safety` sections (idiomatic for
+  vendor-intrinsic wrappers gated on `#[target_feature]`). Core
+  algorithm files (dfa.rs, nfa/{contiguous,noncontiguous}.rs,
+  ahocorasick.rs, automaton.rs) have only `unsafe trait Automaton`
+  + `unsafe impl ... for ...`, justified by a multi-line comment
+  block describing the soundness contract.
+  
+  Call sites WITH `// SAFETY:` comments: packed/pattern.rs:300/332,
+  packed/teddy/builder.rs:362, packed/teddy/builder.rs:512.
+  
+  Call sites WITHOUT the literal `// SAFETY:` prefix:
+  packed/teddy/builder.rs:482, 546, 618, 748 (the Slim/Fat
+  *::new_unchecked wrappers — invariant is the feature-detection
+  guard immediately above, except SlimNeon which has none because
+  Neon is unconditional on aarch64-with-the-relevant-cfg), plus
+  ~40 `unsafe { test() }` blocks in packed/vector.rs test code.
+  Per rubric §2 this caps the rating at neutral.
+  
+  Concern #3 (miri): .github/workflows/ci.yml has no miri job. The
+  pure-Rust unsafe (pointer distance, is_equal_raw) is in principle
+  miri-testable; the SIMD intrinsics are not (miri does not execute
+  vendor intrinsics gated on target_feature). Caps at positive;
+  dominated by the §2 cap.
+  
+  Concern #4 (correctness): No obvious bugs. SmallIndex
+  (util/primitives.rs) carefully constrains automaton state IDs to
+  fit u32/usize/isize on all targets, returning errors on overflow
+  rather than panicking. The Aho-Corasick construction in
+  nfa/noncontiguous.rs and the DFA in dfa.rs follow the textbook
+  algorithm with leftmost-first/longest variants documented in
+  DESIGN.md. Public API does extensive input validation (e.g.
+  AhoCorasickBuilder returns BuildError for too-many-patterns).
+  Spot-checked is_prefix_raw (packed/pattern.rs:265) — length
+  pre-check before the unsafe call is correct. Did NOT walk every
+  state-transition implementation; thoroughness is medium.
+  
+  Did NOT run any code (no cargo build/test/expand) per project
+  rules.
+----- SIGN CREV PROOF -----
+NxgRuayQZK7buzFIutzXHawQBzepxzHsYG-ZxYtyo8lYmNRIYzhdp0-GBbTa3AQ26V1YsZsgDBMu5QziITT6AQ
+----- END CREV PROOF -----
+
