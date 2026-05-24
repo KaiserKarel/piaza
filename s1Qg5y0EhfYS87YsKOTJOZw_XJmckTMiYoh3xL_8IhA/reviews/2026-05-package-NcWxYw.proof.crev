@@ -495,3 +495,55 @@ comment: |-
 DBAzEu6NcgswS2AuH7uSnHpWIOOj5W2inDNXEQzW6MQWOf-feyt3Q6qBop9gEN1_KsX6MdSFl1q8rBOB2x-3CA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-24T23:15:42.976224+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: anstyle
+  version: 1.0.14
+  revision: 0fe6f0ff6d52e9f91d4071199bd0b24bd46f3d35
+  digest: r-jClrVcEzQEC1EIIE7eIYv2LrPa2hE2J1niAbIVj8U
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Small (~700 LoC) crate from the rust-cli org providing core ANSI styling
+  types (Style, Color, Effects, Reset). Read every .rs file under src/ plus
+  Cargo.toml, README, and the dump-style example.
+  
+  Supply-chain (#1): Clean. No build.rs (`build = false` in Cargo.toml), no
+  proc-macros, no deps, no I/O, no env reads, no `Command`, no obfuscation.
+  Only `include_str!` is the README for doctest. Licensed MIT OR Apache-2.0,
+  repo link matches rust-cli/anstyle.
+  
+  Unsafe (#2): One `unsafe` block: `DisplayBuffer::as_str` at color.rs:614
+  calls `core::str::from_utf8_unchecked` on `&self.buffer[0..self.len]`.
+  SAFETY comment reads "Only `&str` can be written to the buffer" — this
+  is slightly inaccurate because `write_code` (color.rs:589) writes raw u8
+  values (`b'0' + digit`), not `&str` slices. The invariant still holds:
+  `digit ∈ 0..=9` so the bytes are `b'0'..=b'9'` (ASCII, valid UTF-8), and
+  the buffer is zero-initialized by `Default`. Functionally safe; the
+  comment could be tighter (e.g. "all writes produce ASCII bytes").
+  
+  Miri (#3): Published tarball does not include CI configuration, so I
+  cannot verify miri runs upstream. The unsafe is pure-Rust and trivially
+  miri-testable. Capping at `positive` per rubric.
+  
+  Correctness (#4): `DisplayBuffer` capacity is 19 bytes, matching the
+  longest possible output `\x1B[38;2;255;255;255m` (verified by the
+  `max_display_buffer` test). `write_code` correctly handles all u8
+  values (0..=255) by suppressing leading zeros while always printing
+  at least one digit. No off-by-one issues spotted. No panicking
+  arithmetic on user-controlled values; the only indexing is internal
+  and bounded by the layout above.
+----- SIGN CREV PROOF -----
+eLiJxryvdONYfeNY1IIb5weQ_AJWD3i1B8hl0h4x3N35fDtsRwhniRm_S5E1LttE0lFrfAY9bwwaqYvZRwu2BA
+----- END CREV PROOF -----
+
