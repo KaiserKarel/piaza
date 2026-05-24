@@ -998,3 +998,57 @@ comment: |-
 gxcv-D6Ya9cWKnA0gSJ5Ya_Qf7LvElOmUlginBodFPur7Lf8_KtZVUKLosaPQlsygKuBeEgZwSmQIzdgpzJGBQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T00:32:43.135872+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: autocfg
+  version: 1.5.0
+  revision: d912169ed67977efe5a465269b0e73cb66060c49
+  digest: FP3nFI0eqvIYg9TMnkpTwiDaxhfsTCIEZOmp6Miet5s
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Small, focused build-script helper (~636 LOC across src/) by Josh Stone
+  (cuviper), a well-established Rust ecosystem maintainer (num, rayon).
+  Read every .rs file under src/ (lib.rs, rustc.rs, version.rs, error.rs,
+  tests.rs) plus Cargo.toml, README, examples/, and tests/.
+  
+  Supply-chain surface:
+  - No `build.rs` (Cargo.toml sets `build = false` explicitly).
+  - Not a proc-macro crate.
+  - No dependencies — `[dependencies]` is empty.
+  - License: dual Apache-2.0 / MIT. Repository link present and matches
+    a long-lived public repo.
+  
+  Code inspection:
+  - `unsafe` count: zero (confirmed by grep). Concerns #2 and #3 don't apply.
+  - `std::process::Command` use is limited to invoking `rustc` to probe
+    whether a snippet compiles — the crate's stated purpose. Args are
+    constructed from controlled inputs (literal flags, env-var derived
+    target/wrapper paths, and user-supplied probe source piped via stdin).
+  - No network, filesystem writes outside OUT_DIR, base64/hex blobs, or
+    `#[no_mangle]` exports.
+  - `RUSTFLAGS`/`CARGO_ENCODED_RUSTFLAGS`/`RUSTC_WRAPPER` handling matches
+    the documented cargo behavior.
+  - `mangle()` and `dir_contains_target()` are simple and behave as
+    documented. `new_uuid()` is best-effort (relies on HashSet iteration
+    order) and is only used to deduplicate probe crate names — not
+    security-critical.
+  - Output cleanup of probe `.ll` files in OUT_DIR is best-effort and
+    explicitly tolerates failure.
+  
+  Did not execute the crate per supply-chain rules; no compilation, no
+  cargo invocations. No correctness bugs surfaced on inspection.
+----- SIGN CREV PROOF -----
+Z6IrObNy0g8kVc3X3mjIFN1zQ8vtwv3uymBPyKD7gQZkRGJgYhQ_iFE3dDsyKYl_Yj9hQQi6wvVbIAkIuMLSDA
+----- END CREV PROOF -----
+
