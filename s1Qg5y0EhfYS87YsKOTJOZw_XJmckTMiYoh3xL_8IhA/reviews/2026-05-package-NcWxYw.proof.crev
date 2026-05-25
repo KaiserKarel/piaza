@@ -3923,3 +3923,62 @@ comment: |-
 t_sQC5VKTTpdQc0CEC9sjTC_L00k0gxoNUeJxRxVELez9JrInmYV1lA3JR2EZ6HWfRtTzadwwsvb2h6KqPZzCA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:51:29.535891+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cssparser
+  version: 0.36.0
+  revision: 9339ddd71443463dfb85d1185ad50cd98b34bc8f
+  digest: 8OyEqBCaarP0qhFSOS-WUFXFg9oNyQ6irCfgAJxy2Ro
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Servo's CSS Syntax Level 3 tokenizer/parser. No build.rs (build = false in
+  Cargo.toml). No proc-macro in this crate (cssparser-macros is a separate
+  dependency, not reviewed here). No suspicious I/O, network, process
+  execution, or include_bytes! of opaque blobs in src/ (only include_str! of
+  JSON test fixtures inside #[cfg(test)] in tests.rs).
+  
+  Read every file under src/ (lib.rs, macros.rs, parser.rs, tokenizer.rs,
+  rules_and_declarations.rs, serializer.rs, color.rs, cow_rc_str.rs,
+  from_bytes.rs, nth.rs, unicode_range.rs). Public-input parsing paths in
+  consume_numeric, consume_string, consume_unquoted_url, consume_escape,
+  unicode_range::parse_concatenated, color::parse_hash_color, and nth.rs
+  look sound: integer math is f64-bounded and saturated when narrowing to
+  i32 (tokenizer.rs:1095), and unicode_range checks range.end <=
+  char::MAX (unicode_range.rs:52). consume_hex caps at 6 digits so the
+  shift in parse_concatenated cannot exceed 24 bits.
+  
+  Unsafe usage (cap-driving finding): roughly 20 unsafe blocks across
+  cow_rc_str.rs, tokenizer.rs, serializer.rs and macros.rs. Several have
+  no `// SAFETY:` comment at all (cow_rc_str.rs:47/64/77/92/106/116,
+  tokenizer.rs:323/432, serializer.rs:180/188); others have nearby
+  prose explaining the invariant ("string_bytes is well-formed UTF-8…",
+  the layout-equivalence comments in macros.rs:181-194, the explicit
+  SAFETY block in macros.rs:135-139) but don't use the canonical
+  `// SAFETY:` prefix. The invariants stated, where given, are plausible:
+  CowRcStr maintains a Rc<String>/&'a str union discriminated by
+  borrowed_len_or_max == usize::MAX (documented on the struct), and
+  from_utf8_release_unchecked is gated to debug-checked in
+  cfg!(debug_assertions). Per AGENTS.md concern #2 this caps at
+  `neutral`.
+  
+  Concern #3 (miri): CI runs `cargo miri test --features skip_long_tests`
+  on nightly across the no-feature / dummy_match_byte / malloc_size_of
+  configurations (.github/workflows/main.yml:66-68), which exercises the
+  unsafe code paths. No miri cap applied.
+  
+  Concern #4 (functional bugs): no reproducible bug found on this pass.
+----- SIGN CREV PROOF -----
+O1W5nOwYOeOBPd1E2JUkZyAvV_ucC-tSoB4Xana5egwyS98bZI68YYRbIs80KvYwaLmyShIgzloi1rHCFYBoBw
+----- END CREV PROOF -----
+
