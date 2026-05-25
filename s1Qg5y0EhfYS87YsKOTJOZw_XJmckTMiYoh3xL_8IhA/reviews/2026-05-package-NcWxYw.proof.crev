@@ -4284,3 +4284,78 @@ comment: |-
 LzSxrmyuWhPFBfO_0SMTsko_H3dPWKmrui10RxRAMPnL0NRnWi_VX4jDvXbn7hiBGzLpjwbD58KIYy6-5hHDCA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:17:00.920260+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: derive_more-impl
+  version: 2.1.1
+  revision: f7bb41ac054c060caaf5ff3212e74e42794cb4b4
+  digest: 2EdNBxswSWm0Zmnutggw2aKzFnUf1pnxGqonvKOyGN8
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Proc-macro implementation half of `derive_more` 2.1.1 (companion crate
+  reviewed positive). 12.4k LOC across src/, authored by Jelte Fennema,
+  MIT, repo https://github.com/JelteF/derive_more. `proc-macro = true`, so
+  this code runs at compile-time inside every downstream consumer's
+  `cargo build` -- that is the threat surface.
+  
+  Concern #1 (malicious/suspicious): clean. No `build.rs` (`build = false`
+  in Cargo.toml; the leftover `build-dependencies.rustc_version = "0.4"`
+  is dead -- no build script exists to invoke it). No `std::process`,
+  `Command`, network APIs (`TcpStream`, `reqwest`, etc.), `libc`,
+  `env::var`/`env!`, filesystem writes, `transmute`, inline asm, or
+  `#[no_mangle]`/`extern "C"` anywhere in src/. `include_str!` is used
+  twice (lib.rs:1 for README, lib.rs:94 for per-feature `doc/*.md`),
+  both literal paths into bundled doc/ -- emitted as proc-macro rustdoc.
+  No obfuscation: no large byte blobs, no base64/hex-encoded blobs.
+  Runtime deps are the canonical proc-macro trio plus two optional
+  helpers: proc-macro2 1.0, quote 1.0, syn 2.0.45, optional
+  convert_case 0.10 and unicode-xid 0.2.2.
+  
+  Concern #2 (unsafe + SAFETY): `#![forbid(non_ascii_idents, unsafe_code)]`
+  at lib.rs:5 statically forbids `unsafe` in the macro's own code. The
+  only `unsafe` token in src/ is at cmp/partial_eq.rs:186, INSIDE a
+  `quote!` block (emitted into consumer code, not executed by the macro):
+  `_ => unsafe { derive_more::core::hint::unreachable_unchecked() }`.
+  Has a proper preceding `// SAFETY:` comment naming the invariant. The
+  emitted arm is only inserted when `self.variants.len() > 1` and
+  `no_fields_arm.is_none()`, and the surrounding generated `PartialEq`
+  impl always emits a `mem::discriminant(self) == mem::discriminant(__other)`
+  short-circuit ahead of the match -- so the `_` wildcard is genuinely
+  unreachable in the expanded code. No cap from #2.
+  
+  Concern #3 (miri): N/A -- the proc-macro itself executes no unsafe
+  code. Miri coverage of the quoted `unreachable_unchecked` belongs to
+  consumer crates, not this one.
+  
+  Concern #4 (functional correctness): no reproducible bugs found.
+  Audited utils.rs (attribute parsing helpers), fmt/parsing.rs (1302-
+  line hand-rolled format-string parser), parsing.rs, error.rs, from.rs,
+  into.rs, from_str.rs, ops/*, fmt/*, and grep-scanned all 36 .rs files.
+  The format-string parser uses `c.len_utf8()` for byte-index slicing
+  and derives all tail slices from suffix cursors of the original input,
+  so no UTF-8 boundary panic risk; it has extensive inline unit tests.
+  Several `panic!`/`unimplemented!()` sites on malformed attribute input
+  (utils.rs:130/263/400/609/664, deref.rs:13, deref_mut.rs:13,
+  not_like.rs:28/34, constructor.rs:24, etc.) abort the consumer's build
+  with a raw panic instead of a span-tagged `syn::Error` -- rough
+  diagnostics but not a soundness or supply-chain issue. lib.rs:96
+  `syn::parse(input).unwrap()` similarly panics on unparseable derive
+  input that rustc has already filtered. All other `.unwrap()`s reviewed
+  are guarded by prior filter/length checks.
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules.
+----- SIGN CREV PROOF -----
+31KEsFkUQDbURPeYMjwnT4zwUhgmhPG11Lcj5Lmn3VWZ-MQToWOxy7A5R9yeHdDPKSvUhNRAWzQSDEhQX8xRAw
+----- END CREV PROOF -----
+
