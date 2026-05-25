@@ -1681,3 +1681,59 @@ comment: |-
 o_cb2NFe-_XA8VgYAdhhuMgVc6qFvlV89ewVkWxb552lp_QzBj5nDkbv8h2PjTaLqM93UpJzuroy9SwM7YnMBg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T15:55:33.366552+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: block-buffer
+  version: 0.10.4
+  revision: 6d35952d3d3b124bc1049ad6fb406b42b1ce4bfe
+  digest: crjkZXLITOFFwnXnyz775eTKsFjkNHLOPE4U3mbptnE
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Small (~350 LOC) `no_std` block-buffer utility from RustCrypto, used as a
+  building block for hash function implementations. Read every .rs file in
+  src/ (lib.rs, sealed.rs) and tests/mod.rs. No build.rs, no proc-macros,
+  single dependency on `generic-array = "0.14"`. License MIT OR Apache-2.0,
+  repository link present and matches the cargo_vcs_info revision
+  6d35952d3d3b124bc1049ad6fb406b42b1ce4bfe.
+  
+  Four `unsafe` blocks, all justified with `// SAFETY:` comments:
+  - lib.rs:200 `unreachable_unchecked` inside `get_pos`. The invariant is
+    upheld by every `set_pos_unchecked` call site (each is preceded by a
+    bounds proof or invariant check). Sound.
+  - lib.rs:348 `slice::from_raw_parts_mut` over `nb * N` bytes of a slice
+    that was just split at `nb * N`. Alignment of `Block<N> = GenericArray<u8, N>`
+    is 1, so the u8 -> Block<N> cast is fine. Sound.
+  - sealed.rs:27 and sealed.rs:58 build a `(blocks, tail)` view over a slice
+    via raw pointers. Traced the arithmetic for both Eager and Lazy variants
+    (including the empty-input early return in Lazy and the `data.len() % N == 0`
+    branch where `nb = len/N - 1`). All in-bounds. Sound.
+  
+  The `IsLess<U256>` / `Le<_,_>: NonZero` bounds keep `BlockSize < 256`, so
+  `pos as u8` is always lossless (Eager pos in 0..BlockSize, Lazy in 0..=BlockSize,
+  max 255). Zero `BlockSize` is rejected at runtime in `Default::default` and
+  `try_new` — this is the soundness fix that motivated 0.10.4 (CHANGELOG cites
+  PR #844).
+  
+  No miri job in the upstream CI workflow (.github/workflows/block-buffer.yml
+  at the reviewed revision). The unsafe here is pure pointer/slice work, fully
+  miri-testable, so per the rubric this caps the rating at `positive`.
+  
+  Tests in tests/mod.rs exercise both Eager and Lazy buffers across the
+  padding/digest/set_data paths; no behavioural concerns surfaced from
+  reading them. No grep hits for include_bytes!, process::Command, libc,
+  network APIs, or other supply-chain red flags.
+----- SIGN CREV PROOF -----
+WFSGAC0xDoQSpKhJpzjQC5hoVQXOvdpjYrIt3HTAcru9b-wjWfcsYjYcFX7mVNAo56jD9HSjuFjsDQ5at_OsDQ
+----- END CREV PROOF -----
+
