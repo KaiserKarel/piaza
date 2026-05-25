@@ -1,0 +1,21 @@
+# Crates we deliberately don't review (yet).
+#
+# Each entry pulls a (name, version) pair out of the pending queue. The tick
+# treats them identically to "already reviewed" — they just stop showing up.
+#
+# Add an entry only when a crate is unreviewable for a concrete, identified
+# reason (a tooling bug, a missing feature, an external dependency). The
+# `reason` field is required and shows up in commit messages / surfacing
+# this file. Remove the entry once the blocker is resolved and the crate
+# becomes reviewable again.
+#
+# Schema:
+#   [[skip]]
+#   name = "<crate>"
+#   version = "<exact-version>"
+#   reason = "<one-line explanation, link to upstream issue if any>"
+
+[[skip]]
+name = "async-stream"
+version = "0.3.6"
+reason = "cargo-crev 0.27.1 deserializer at src/shared.rs:46-50 rejects newer cargo's `\"dirty\": true` field in .cargo_vcs_info.json; no safe workaround exists that preserves the canonical recursive content digest. Revisit when cargo-crev upstream accepts the field."

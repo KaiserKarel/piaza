@@ -32,7 +32,14 @@ enumerate() {
     trap 'rm -f "$all" "$reviewed"' RETURN
 
     "$repo_root/scripts/enumerate-targets.py" | sort -t$'\t' -k1,1 -k2,2 >"$all"
-    "$repo_root/scripts/list-reviewed.py"    | sort -t$'\t' -k1,1 -k2,2 >"$reviewed"
+    # "Done" = anything we have a proof for, plus anything we've explicitly
+    # decided not to review (skip.toml). Both should disappear from the
+    # pending queue; the filter logic below joins on (name, version) so the
+    # third column (digest or blank) is ignored.
+    {
+        "$repo_root/scripts/list-reviewed.py"
+        "$repo_root/scripts/list-skipped.py"
+    } | sort -u -t$'\t' -k1,1 -k2,2 >"$reviewed"
 
     # Lines in $all whose (name, version) prefix isn't already in $reviewed.
     # When $reviewed is empty, the NR==FNR awk-join idiom misbehaves (it
