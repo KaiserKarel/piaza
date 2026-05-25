@@ -1304,3 +1304,67 @@ comment: |-
 gCK-YJg5IW41oXYV4MjceSCghfe2kkAiaa541rkjFx2lCzOtHZNSJ6AO7G8GtqjMjQ3GeuITcvYeEcJ79XqeDg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T10:38:19.765510+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bit-set
+  version: 0.8.0
+  revision: 2b8861d23b53d63d326d2694ddabde6e7b19fbd0
+  digest: 3jz5rykbmt4FQH-kNVgQonhDWufVk74m8z0MC9rl7ag
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: unsafe-missing-safety-comment
+  severity: low
+  comment: |
+    Two `unsafe` blocks (lib.rs:406, lib.rs:445) lack `// SAFETY:`
+    comments. The reasoning is straightforward in both cases (see
+    review comment) but should be documented at the call sites.
+comment: |-
+  Reviewed the full source: src/lib.rs (1681 lines incl. tests),
+  Cargo.toml, README, benches/bench.rs, .github/workflows/rust.yml.
+  No build.rs, no proc-macro, no_std-capable with a `std` default
+  feature. Single first-party dep `bit-vec = 0.8.0`; optional serde
+  derive support. Pure-Rust BitSet wrapper around `bit_vec::BitVec` —
+  set ops (union/intersect/difference/symmetric_difference, both
+  iterator and in-place forms), iteration, shrink_to_fit, truncate.
+  
+  Concern #1 (malicious): nothing suspicious. No I/O, no env reads,
+  no include_bytes!, no Command, no FFI. Code descends from the
+  long-removed std::collections::BitSet.
+  
+  Concern #2 (unsafe SAFETY comments): two `unsafe` blocks, neither
+  has a `// SAFETY:` comment — caps rating at `neutral`.
+    - lib.rs:406-408 in other_op: writes back combined block via
+      `storage_mut()[i] = new`. Safe in practice because
+      self_bit_vec.len() >= other_bit_vec.len() after the grow above,
+      and bitwise ops on the (zero-by-invariant) trailing bits
+      preserve the trailing-zeros invariant for |, &, ^, &!.
+    - lib.rs:445-448 in shrink_to_fit: truncates trailing all-zero
+      blocks then set_len(trunc_len * B::bits()). Safe because the
+      removed blocks were all zero, and rounding nbits up to a block
+      boundary only "exposes" bits that were already zero.
+  
+  Concern #3 (miri): CI runs `cargo miri test` with
+  `-Zmiri-strict-provenance` against both default and serde features.
+  No additional cap.
+  
+  Concern #4 (correctness): no bugs found. LSB-isolation trick in
+  BlockIter::next (`head & (!head + 1)`) is the standard two's-
+  complement idiom and is correct for any unsigned BitBlock.
+  blocks_for_bits deliberately avoids usize::MAX overflow.
+  Intersection::next's `n` cap equals min(self.nbits, other.nbits),
+  a valid upper bound on intersection size.
+----- SIGN CREV PROOF -----
+Do0Rh4N5eeoiiwnY5pHVQOgQhBxUKpA_NShnrVF29mllD7B60-bShbIbzKkMidjH1Xd9i0Tu11dtEquCrs2OAw
+----- END CREV PROOF -----
+
