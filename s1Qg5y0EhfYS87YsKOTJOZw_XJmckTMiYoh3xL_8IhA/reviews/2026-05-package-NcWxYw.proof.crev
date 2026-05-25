@@ -1594,3 +1594,90 @@ comment: |-
 3MFCBX7nNjLmMYDWj2SHSGhyhWpI2WBTNLVWf9BNASTXnBkQ-0beyvAO1wMrBiD7eHN_1tKa730kO-b6Ga-PAw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T15:51:08.048817+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: blake2b_simd
+  version: 1.0.4
+  revision: 6a94ae2e18985c7c35bada8a4d438bfe9ab0d0c0
+  digest: pX1IRMw4ygr-3f2LaBrMI39RjB5_3buP_Iox41115Z4
+review:
+  thoroughness: high
+  understanding: high
+  rating: neutral
+issues:
+- id: unsafe-without-safety-comments
+  severity: low
+  comment: |
+    No `// SAFETY:` comments anywhere in the source (grep for SAFETY
+    returns zero matches). The crate contains ~112 occurrences of
+    `unsafe` across src/avx2.rs (63), src/sse41.rs (46), and
+    src/guts.rs (3). Most are wrappers around x86 SIMD intrinsics
+    (loadu/storeu/add/xor/rot*/etc.), which require both target-feature
+    availability and pointer validity for loads/stores. The two
+    `#[target_feature(enable = ...)]` entry points (avx2::compress1_loop,
+    avx2::compress4_loop, sse41::compress2_loop) are only called from
+    guts.rs after `is_x86_feature_detected!` (or static `target_feature`)
+    confirms support, but no `// SAFETY:` comment documents this at
+    the unsafe call sites (guts.rs:107,121,131). The raw-pointer cast
+    in avx2.rs:471 (`&*(input.as_ptr().add(offset) as *const [u8; BLOCKBYTES])`)
+    has a narrative comment ("There's guaranteed to be enough input
+    because `offset < fin_offset`") that explains the invariant but
+    doesn't use the canonical `// SAFETY:` prefix.
+- id: no-miri-in-ci
+  severity: low
+  comment: |
+    Upstream CI (.github/workflows/ci.yml on oconnor663/blake2_simd)
+    runs cargo tests on stable/beta/nightly across Linux/macOS/Windows
+    and cross-tests on i586/i686/armv7/aarch64/powerpc64/s390x, but
+    does not invoke `cargo miri test`. Most of the unsafe is x86 SIMD
+    intrinsics which miri cannot execute; however, the pointer-arithmetic
+    cast in avx2.rs:471 and the `mem::transmute` calls (sse41.rs:286-287,
+    avx2.rs:829-830) are miri-testable in principle.
+comment: |-
+  Pure-Rust BLAKE2b / BLAKE2bp implementation by Jack O'Connor (also
+  the author of BLAKE3 and the `blake3` crate). Read every .rs file
+  under src/ (lib.rs, guts.rs, portable.rs, avx2.rs, sse41.rs,
+  blake2bp.rs, many.rs, test.rs), Cargo.toml, Cargo.toml.orig, and
+  README.md.
+  
+  Supply chain: no build.rs, no proc-macro, three small non-dev
+  dependencies (arrayref 0.3.5, arrayvec 0.7 default-features=false,
+  constant_time_eq 0.4.2 default-features=false). Grep for
+  include_bytes!, std::process, std::net, libc, env::var, Command —
+  none present. Licensed MIT, repository link matches GitHub source
+  (oconnor663/blake2_simd at rev 6a94ae2e18985c7c35bada8a4d438bfe9ab0d0c0,
+  path blake2b/). SIGMA + IV constants in lib.rs match the BLAKE2 spec.
+  
+  Cap: rating limited to `neutral` because every unsafe block lacks a
+  `// SAFETY:` comment. The unsafe is the standard pattern for a
+  dynamically-dispatched SIMD hash crate: per-intrinsic `unsafe fn`
+  wrappers, plus `#[target_feature]` entry points reached only after
+  feature detection in guts::Implementation::detect(). Defensible, but
+  uncommented.
+  
+  Correctness: extensive in-tree tests including BLAKE2 RFC 7693 test
+  vectors (EMPTY_HASH, ABC_HASH, ONE_BLOCK_HASH, THOUSAND_HASH), a
+  parameterized vector (test_all_parameters), and a separate
+  blake2bp::test::test_against_reference cross-checking the optimized
+  buffering against a simpler reference. guts.rs::exercise_compress*_loop
+  exhaustively exercises serial/parallel strides and finalize/last_node
+  combinations across boundary lengths and three counter values
+  (including the wrap-near-zero case). Verified the pointer-arithmetic
+  cast in avx2.rs:471 — when `offset != fin_offset`, the loop invariant
+  `offset < fin_offset <= input.len() - 1` plus
+  `padded_blockbytes() >= BLOCKBYTES` guarantees `offset + BLOCKBYTES
+  <= input.len()`. No off-by-one, no plausible-input panics, no
+  unwraps on parsed data. Count is a u128 so the 2^128-byte BLAKE2b
+  spec limit is honored (unlike implementations that cap at u64).
+----- SIGN CREV PROOF -----
+o_cb2NFe-_XA8VgYAdhhuMgVc6qFvlV89ewVkWxb552lp_QzBj5nDkbv8h2PjTaLqM93UpJzuroy9SwM7YnMBg
+----- END CREV PROOF -----
+
