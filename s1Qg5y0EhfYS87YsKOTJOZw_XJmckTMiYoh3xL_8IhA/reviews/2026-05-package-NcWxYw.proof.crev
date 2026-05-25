@@ -3982,3 +3982,53 @@ comment: |-
 O1W5nOwYOeOBPd1E2JUkZyAvV_ucC-tSoB4Xana5egwyS98bZI68YYRbIs80KvYwaLmyShIgzloi1rHCFYBoBw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:53:09.605255+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cssparser-macros
+  version: 0.6.1
+  revision: 0ebd17bcd13808f087b083f34d2f816e380b5155
+  digest: jxwYwkufZGWa1leJHcABkNjuDdGbC57W1qNUnSHnl8M
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Tiny (~190 lines, single lib.rs) proc-macro crate from Servo providing two
+  macros used by `cssparser`: `_cssparser_internal_max_len!` and `match_byte!`.
+  
+  Concern #1 (malicious code): clean. No build.rs. proc-macro = true but the
+  macro bodies do nothing beyond parsing tokens with `syn`, building a 256-byte
+  lookup table, and emitting tokens via `quote`. No filesystem, network,
+  process, env, or include_bytes! usage (grep clean). Deps are `syn` and
+  `quote`, both ecosystem-standard. License MPL-2.0, repo points to
+  servo/rust-cssparser.
+  
+  Concern #2/#3 (unsafe): no `unsafe` anywhere -- both caps N/A.
+  
+  Concern #4 (correctness): reviewed both macros.
+  - `_cssparser_internal_max_len`: validates each string literal is ASCII
+    lowercase, tracks max length. Straightforward.
+  - `match_byte`: builds a [u8; 256] dispatch table from match-arm byte
+    patterns (Lit, Range, Wild, Ident, Or). Range handling at lib.rs:72-83
+    iterates `lo..hi` then sets `hi` separately, i.e. always inclusive. This
+    ignores the `PatRange.limits` field, but Rust match patterns only accept
+    `..=` on stable, so in practice the behavior matches user intent. The
+    `panic!`/`unreachable!`/`assert!` calls (lib.rs:46, 54, 92, 106, 144-148)
+    fire at macro-expansion time on malformed input -- produces a compile
+    error rather than a clean syn::Error::new, slightly worse UX but not a
+    correctness bug. `case_id as u8` at line 167 would wrap if a match had
+    >255 arms, but byte matches with that many arms are implausible.
+  
+  No issues warranting an `issues:` block. Comfortable depending on this.
+----- SIGN CREV PROOF -----
+IIdOmx4ZUppC2vOiTd45zOXA5upULIf-5cqku1_jwdYaLIwHVGi-tKnfRXtqFRaPpf_aYGASMOqLaou9RQlkAQ
+----- END CREV PROOF -----
+
