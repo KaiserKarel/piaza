@@ -2116,3 +2116,64 @@ comment: |-
 IxzFnwMshbw9zRzPhxVlmgnXH1myLCHs7rUSYWOQlGb8O1VLUWKAQ4Rm3BKxxkGYUTKo04P_izmnW8QpOWl8DA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T17:36:12.687567+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: byteorder
+  version: 1.5.0
+  revision: ec068eefa042d494475db125c4b034bd8e9e34dd
+  digest: RtFYGYepzYS1SKBjY9bZDecQJ8VuV9yEawmbVjz9O4g
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: unsafe-without-safety-comments
+  severity: low
+  comment: |
+    All unsafe blocks/fns in src/lib.rs and src/io.rs lack `// SAFETY:`
+    comments. The invariants are simple (same-size primitive reinterpretation,
+    bounded copy_nonoverlapping) and miri covers them, but the convention is
+    not followed. Caps rating at `neutral` per project rubric.
+comment: |-
+  Read every .rs file under src/ (lib.rs, io.rs), Cargo.toml(.orig), README.md,
+  CHANGELOG.md, and .github/workflows/ci.yml. No build.rs, no proc-macros, no
+  runtime deps (dev-deps: quickcheck, rand). No network/filesystem/process I/O
+  beyond the documented Read/Write extension traits. License: Unlicense OR MIT.
+  Author is BurntSushi (Andrew Gallant), longstanding ecosystem maintainer.
+  
+  Concern #1 (malicious): none found.
+  
+  Concern #2 (unsafe w/o SAFETY): the crate contains ~30 `unsafe` blocks across
+  lib.rs and io.rs. None carry the conventional `// SAFETY:` comment. The
+  bodies are idiomatic: (a) `slice::from_raw_parts_mut(_ as *mut U, len)` to
+  reinterpret &mut[i{16,32,64,128}]/&mut[f{32,64}] as their same-size unsigned
+  counterpart — sound because size_of and align_of match (lib.rs:1091, 1120,
+  1149, 1178, 1208, 1270, etc.; an `align_of` const-assert is even present at
+  lib.rs:1209/1271); (b) `slice_to_u8_mut` (io.rs:1587) reinterprets &mut[T:Copy]
+  as &mut[u8] — sound since u8 has alignment 1 and size_of::<u8>() == 1;
+  (c) `copy_nonoverlapping` in write_uint/write_uint128 (lib.rs:2001/2015/
+  2187/2197) bounded by `assert!(nbytes <= buf.len())` and `nbytes <= 8/16`
+  guards immediately preceding. Per the rubric these missing SAFETY comments
+  cap the rating at `neutral`.
+  
+  Concern #3 (unsafe w/o miri): CI runs `cargo miri test --verbose` against
+  the full test suite (.github/workflows/ci.yml:158-170) on nightly. The
+  unsafe is pure-Rust (no FFI/syscalls) and miri-testable. No penalty.
+  
+  Concern #4 (correctness): no bugs identified. write_uint/write_uint128 use
+  pack_size guards before slicing the BE byte buffer; signed n-byte helpers
+  round-trip via extend_sign/unextend_sign. read_slice!/write_slice! macros
+  use chunks_exact and a length assert. Float reads use f{32,64}::from_bits
+  (no sNaN UB).
+----- SIGN CREV PROOF -----
+TIPpEGEzI-x1xJqyDB10WN3kI2pa9-gg-QkkxXh6cA-eKAqiLMJEyu4rP2-BY0UUHTQwGvNmUHjL6WI2vkc8Bw
+----- END CREV PROOF -----
+
