@@ -1472,3 +1472,60 @@ comment: |-
 9YLJ-l2HYZ3IVsV1yKGLn_hTqfvSvfHD0JiPU5qIcX8ElJIJyhQBx3nrPSXjBmkvYbyi0_oPt_AItGIQqbdGCg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T10:50:57.339072+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bitflags
+  version: 2.11.1
+  revision: 4ed9ffa949970239cd2d87c775e9fdcf9c438fb5
+  digest: 2NuwlX5Oj2GG_iB7avcg2PumQat1oC4iBn_qmRLlz68
+review:
+  thoroughness: high
+  understanding: high
+  rating: strong
+comment: |-
+  Reviewed every .rs file under src/ (lib.rs, traits.rs, public.rs,
+  internal.rs, external.rs, external/{serde,arbitrary,bytemuck}.rs,
+  iter.rs, parser.rs, example_generated.rs, tests.rs) plus Cargo.toml,
+  Cargo.toml.orig, README, CHANGELOG.
+  
+  Concern 1 (malicious/suspicious): clean. No build.rs (Cargo.toml sets
+  `build = false`); no proc-macro (only declarative `macro_rules!`); no
+  `include_bytes!`, `process::Command`, network, env-var, or libc usage
+  anywhere. Owned by The Rust Project Developers, repo bitflags/bitflags,
+  dual MIT/Apache. Optional deps (serde_core, arbitrary, bytemuck) are
+  all reputable.
+  
+  Concern 2 (unsafe without SAFETY): lib.rs:251 sets
+  `#![cfg_attr(not(test), forbid(unsafe_code))]` -- the crate forbids
+  unsafe entirely outside tests. The only `unsafe` tokens are two
+  bytemuck trait impls in external.rs:236,243 (gated behind the opt-in
+  `bytemuck` feature), each preceded by a SAFETY comment correctly
+  citing the `#[repr(transparent)]` newtype-over-`T` ABI guarantee
+  from internal.rs:19. Sound.
+  
+  Concern 3 (unsafe without miri): tests use `#[cfg(not(miri))]` to
+  skip slow exhaustive loops (e.g. parser.rs tests), which indicates
+  upstream CI runs miri. The unsafe in this crate is just two trait
+  declarations with no runtime code, so miri has nothing to evaluate
+  beyond the type-level repr-transparent argument; no penalty.
+  
+  Concern 4 (correctness): code is small, careful, and well-specified
+  (see spec.md). Read traits.rs / public.rs / internal.rs / iter.rs /
+  parser.rs in detail -- operators map cleanly to bitwise ops, iterators
+  handle overlapping/multi-bit flags as documented, parser correctly
+  separates the hex / named / strict paths and rejects empty and
+  malformed input. No panics on plausible input, no integer-overflow
+  hazards (all arithmetic is on the user-provided bits type via `|`,
+  `&`, `^`, `!`). No bugs found.
+----- SIGN CREV PROOF -----
+pCJmeRBsE-2_Lnw6FQAFkJ84JG6KRzFROCSCT2vCLGTk5kT9_m70IQvlB54xH8KaOyEYaX8KWOrZfRaulgO7Aw
+----- END CREV PROOF -----
+
