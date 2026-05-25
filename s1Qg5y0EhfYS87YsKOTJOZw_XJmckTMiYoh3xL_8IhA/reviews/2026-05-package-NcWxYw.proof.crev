@@ -2177,3 +2177,94 @@ comment: |-
 TIPpEGEzI-x1xJqyDB10WN3kI2pa9-gg-QkkxXh6cA-eKAqiLMJEyu4rP2-BY0UUHTQwGvNmUHjL6WI2vkc8Bw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T17:42:06.776624+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bytes
+  version: 1.11.1
+  revision: 417dccdeff249e0c011327de7d92e0d6fbe7cc43
+  digest: JmcFh6Z6VLPe56h_jYGmcXAKcw2Cx4rGRlRRPf3ZusE
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+issues:
+- id: many-unsafe-blocks-without-safety-comments
+  severity: low
+  comment: |
+    Of 146 `unsafe` occurrences across src/, only 19 lines contain a
+    `// SAFETY:` comment. bytes.rs (~1670 LoC, 55 unsafe occurrences)
+    has zero `SAFETY:` comments — every vtable dispatch block (e.g.
+    lines 339, 515, 563, 664, 683, 690, 1044, 1057) and every internal
+    raw-pointer arithmetic block (e.g. 406, 672) is uncommented. The
+    invariants are real (vtable contract, offset-within-buffer) and
+    upheld in practice, but per rubric §2 this caps the rating at
+    `neutral`. bytes_mut.rs is better but still incomplete.
+comment: |-
+  Reviewed crate published at version 1.11.1 by Carl Lerche and Sean
+  McArthur (tokio-rs). De-facto byte-buffer library in the async/
+  networking Rust ecosystem (hyper, tonic, h2, prost, axum, all of
+  tokio downstream). Read every .rs file under src/ (lib.rs, bytes.rs,
+  bytes_mut.rs, serde.rs, loom.rs, fmt/mod.rs, fmt/debug.rs, fmt/hex.rs,
+  buf/{mod,buf_impl,buf_mut,chain,iter,limit,reader,take,uninit_slice,
+  vec_deque,writer}.rs), Cargo.toml, README.md, CHANGELOG.md,
+  .github/workflows/ci.yml, ci/{miri,tsan,panic-abort,test-stable}.sh.
+  
+  Concern #1 (malicious/suspicious): no build.rs (`build = false` in
+  Cargo.toml line 21), no proc-macro, no `include_bytes!`, no
+  `Command`/syscall/network APIs, no obfuscation. Only optional deps
+  are portable-atomic (gated `extra-platforms` feature for targets
+  without atomic CAS) and serde (gated `serde` feature). License MIT,
+  repo https://github.com/tokio-rs/bytes, authors well-known. No red
+  flags.
+  
+  Concern #2 (unsafe + SAFETY): heavy unsafe in bytes.rs and
+  bytes_mut.rs implementing a vtable-based shared-storage scheme with
+  pointer tagging (KIND_ARC/KIND_VEC LSB, original-capacity bits,
+  vec-position bits). The design is sound and well-known. However
+  `// SAFETY:` comments are sparse: bytes.rs has none, bytes_mut.rs
+  has ~8 across ~50 unsafe occurrences. The `unsafe fn` definitions
+  carry `# Safety` rustdoc, but per the rubric every unsafe *block*
+  should be commented, so this caps rating at `neutral`. See issue.
+  
+  Concern #3 (miri): yes — .github/workflows/ci.yml runs a dedicated
+  miri job invoking ci/miri.sh, which runs `cargo miri test` with
+  `MIRIFLAGS=-Zmiri-strict-provenance`, on host plus
+  `mips64-unknown-linux-gnuabi64` (big-endian coverage), plus a
+  release build (wrapping overflow). CI also runs loom (`--cfg loom`)
+  for concurrency model checking, tsan/asan, panic=abort tests, and
+  matrix builds across i686/armv7/powerpc/powerpc64/wasm32-wasip1.
+  This is among the strongest test coverage in the ecosystem for an
+  unsafe-heavy crate. No additional cap from §3.
+  
+  Concern #4 (correctness): 1.11.1 ships a single fix vs 1.11.0 —
+  "Fix integer overflow in BytesMut::reserve". The current
+  reserve_inner (bytes_mut.rs:607-787) uses `checked_add` for both
+  `len + additional` (line 678) and `new_cap + offset` (line 698),
+  panicking explicitly on overflow rather than wrapping. Refcount
+  overflow is guarded in shallow_clone_arc (bytes.rs:1466),
+  owned_clone (bytes.rs:1126), and increment_shared
+  (bytes_mut.rs:1448), each comparing against `usize::MAX >> 1` /
+  `isize::MAX as usize` and calling `crate::abort()` on overflow.
+  release_shared uses the canonical Acquire-load-after-Release-fetch_sub
+  Arc drop dance (with a load instead of fence per the documented tsan
+  workaround). shallow_clone_vec's compare_exchange promotion (Vec→Arc)
+  initializes the new refcount to 2 (self + clone) and on Err releases
+  the new Box without dropping the moved-out Vec via `mem::forget` —
+  correct. slice() and slice_ref() bounds-check with `checked_add`/
+  asserts before pointer arithmetic. No off-by-one, no panic on
+  plausible inputs, no concurrency bug spotted in the vtable
+  dispatch paths.
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules.
+----- SIGN CREV PROOF -----
+v4MTKAGwTYGh4hVhe280fECg0OCyMkwgaQtzw-wNczmDU0QZ-JK9qZ3PDRRQgZQLTVqws6cj7bzZVlM-GblKDw
+----- END CREV PROOF -----
+
