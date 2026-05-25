@@ -3656,3 +3656,66 @@ comment: |-
 72_Ud_JROwvxN0DnsDDxMB5QyirI1cwdna3vzTFVc8lOAh0BWuNqDuKH6YsnKvAcee-wClFCQsMZTPD64K7jBg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:31:53.315917+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: crossbeam-epoch
+  version: 0.9.18
+  revision: 9c3182abebb36bdc9446d75d4644190fef70fa01
+  digest: KmvGTQIId6zAyUCjdIMyiJbKayjbBfJSb5F56Xgu4sA
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Epoch-based GC primitive from the crossbeam project; foundational concurrency
+  crate (170M+ downloads). Read every .rs in src/ (atomic.rs, collector.rs,
+  default.rs, deferred.rs, epoch.rs, guard.rs, internal.rs, sync/{list,queue,
+  once_lock,mod}.rs), plus tests/loom.rs and examples/sanitize.rs.
+  
+  Supply chain (concern #1): No build.rs, no proc-macro, no include_bytes!, no
+  network/process/filesystem I/O, no obfuscation. Sole runtime dep is
+  crossbeam-utils (sibling crate, same maintainers); loom is an optional
+  cfg-gated test dep. License MIT/Apache-2.0, repo on github.com/crossbeam-rs.
+  
+  Unsafe with SAFETY comments (concern #2): heavy unsafe usage (~188 unsafe
+  tokens across src/), but only a handful of `// SAFETY:` annotations. The
+  pattern is older: unsafe fn definitions document invariants in `/// # Safety`
+  doc sections (e.g. atomic.rs:160-191 for Pointable, atomic.rs:1037-1039 for
+  Pointer::from_usize), and unsafe blocks rely on those documented contracts
+  rather than restating them inline. Per the rubric this caps the rating at
+  neutral; the unsafe itself is well-trodden lock-free code (Michael-Scott
+  queue, intrusive list, Treiber-style epoch tracking) that has been used in
+  production for years and survived extensive miri/loom scrutiny.
+  
+  Unsafe with miri (concern #3): the crate has pervasive `#[cfg(miri)]` test
+  knobs (collector.rs, queue.rs, internal.rs reduces MAX_OBJECTS to 4 under
+  miri). The parent repo's ci/miri.sh runs `cargo miri test -p crossbeam-epoch`
+  with `-Zmiri-symbolic-alignment-check -Zmiri-disable-stacked-borrows
+  -Zmiri-ignore-leaks`. Stacked borrows is disabled (crossbeam-rs/crossbeam#545)
+  so aliasing bugs would not be caught, but core UB checks still run. ci.yml
+  also runs a separate loom job (ci/crossbeam-epoch-loom.sh) covering tests/
+  loom.rs. No miri penalty applied.
+  
+  Correctness (concern #4): no reproducible bugs found. Notable observations:
+  Local::unpin (internal.rs:444) does `guard_count - 1` without an overflow
+  guard but is invariant-protected by Guard::drop; pin uses checked_add. The
+  x86 SeqCst-via-cmpxchg hack in Local::pin (internal.rs:394-422) is annotated
+  as experimentally validated rather than formally proven. Owned::Drop calls
+  T::drop on the raw pointer with only a debug_assert against zero in
+  Owned::from_usize. Array::layout panics on overflow via unwrap, consistent
+  with stdlib behavior.
+  
+  No RUSTSEC advisories listed for this crate. Rating capped at neutral solely
+  due to the missing `// SAFETY:` annotations per the project rubric.
+----- SIGN CREV PROOF -----
+Zpz_WB5F9-KJOoyGyDIktaDv68aLDvqogdk29i9b-pPkACy0rKrm3RnHM3ZYJN2-TmqDvutXmLO5XsXRuQwoCQ
+----- END CREV PROOF -----
+
