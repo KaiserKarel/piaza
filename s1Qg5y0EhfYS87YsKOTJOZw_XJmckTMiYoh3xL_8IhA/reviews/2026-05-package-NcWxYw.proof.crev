@@ -1529,3 +1529,68 @@ comment: |-
 pCJmeRBsE-2_Lnw6FQAFkJ84JG6KRzFROCSCT2vCLGTk5kT9_m70IQvlB54xH8KaOyEYaX8KWOrZfRaulgO7Aw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T10:54:44.811548+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: blake2
+  version: 0.10.6
+  revision: 1f727ce37ff40fa0cce84eb8543a45bdd3ca4a4e
+  digest: fQBj4HEFjA1jI0l7wuhzpl9S9bId5hJe333GeG_4v5Q
+review:
+  thoroughness: high
+  understanding: high
+  rating: neutral
+issues:
+- id: unsafe-without-safety-comments
+  severity: low
+  comment: |
+    Every `unsafe { ... }` block and `unsafe impl`/`unsafe trait` in
+    src/ lacks a preceding `// SAFETY:` comment. Locations:
+    as_bytes.rs:12,22,29,38-45; simdty.rs:73-77; simd.rs:101,115,129;
+    simdop.rs:22,43,64,85; simd_opt.rs:12; simd_opt/u64x4.rs:115,128.
+    The invariants (POD-only Safe trait, repr(C)/repr(simd) layout
+    guarantees, intrinsic preconditions) are recoverable from the
+    code but should be documented inline.
+comment: |-
+  Pure-Rust BLAKE2b/BLAKE2s implementation maintained by RustCrypto, based
+  on cesarb's blake2-rfc. Read every .rs under src/ (lib.rs, macros.rs,
+  consts.rs, as_bytes.rs, simd.rs, simd/{simdty,simdop,simdint,simd_opt}.rs,
+  simd/simd_opt/{u32x4,u64x4}.rs), the tests/, benches/, both Cargo.toml
+  files, README, and CHANGELOG.
+  
+  Supply chain: no build.rs, no proc-macro, single non-dev dependency
+  (digest 0.10.3 from RustCrypto). Grep for include_bytes!, std::process,
+  std::net, libc, env::var, Command — none present. Dual-licensed
+  MIT/Apache-2.0, repo + docs links match RustCrypto/hashes. Constants
+  in consts.rs (SIGMA + IV) match the BLAKE2 RFC 7693 spec.
+  
+  Cap: rating limited to `neutral` because every unsafe block lacks a
+  `// SAFETY:` comment (grep for "SAFETY" returns no matches). The unsafe
+  is mostly defensible — as_bytes.rs::from_raw_parts is gated by an
+  `unsafe trait Safe` marker implemented only for POD primitives and
+  repr(C)/repr(simd) wrappers; the SIMD intrinsics in simdop/simdint/
+  simd_opt are gated behind the off-by-default nightly `simd` feature
+  (also uses removed `feature(platform_intrinsics)` + legacy `asm!`
+  syntax, so that path almost certainly no longer builds on current
+  nightly). Default build (`std`) only hits the as_bytes.rs unsafe.
+  Still, the lack of SAFETY comments is the documented cap trigger.
+  
+  Miri: .crate tarball doesn't ship CI config; the SIMD/asm paths aren't
+  miri-testable anyway (intrinsics + inline asm). The default-feature
+  unsafe (from_raw_parts over POD slices) would be miri-testable but
+  this can't be verified from the tarball alone.
+  
+  Correctness: counter `self.t: u64` and `t1 = 0` for BLAKE2b technically
+  caps messages at 2^64 bytes vs. spec's 2^128; not a practical issue.
+  No panicking arithmetic on plausible input found.
+----- SIGN CREV PROOF -----
+3MFCBX7nNjLmMYDWj2SHSGhyhWpI2WBTNLVWf9BNASTXnBkQ-0beyvAO1wMrBiD7eHN_1tKa730kO-b6Ga-PAw
+----- END CREV PROOF -----
+
