@@ -4074,3 +4074,68 @@ comment: |-
 escvuQ8Bp7eDayST7YYWAdLybvOOdkYlqmEw-cXx8Wdd4393Xelcd_HawkRDtq252KU1tEZQjNREsJ8jdXSzDQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:03:00.742254+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: darling_core
+  version: 0.21.3
+  revision: f21aa2c5ccd002f978a18758815bd7e7cdba4741
+  digest: rS7aEhD0RAl3qMuDwQJE_NkKhPsj5W3JwmkOVb77xnI
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+comment: |-
+  Implementation crate behind the `darling` proc-macro framework. This crate
+  is the heavy lifter: it defines the FromMeta/FromDeriveInput/FromField/etc.
+  traits, their impls for std and `syn` types, the error/Accumulator machinery,
+  the `usage` module for generic-parameter tracing, and the codegen module
+  that emits the trait impls used by `darling_macro`.
+  
+  Read every .rs file under src/ (~10.3 kLOC), Cargo.toml, and the original
+  Cargo.toml.orig.
+  
+  Concern #1 (malicious / suspicious code): nothing flagged. Cargo.toml has
+  `build = false`, no build.rs exists, and `proc-macro = true` is NOT set —
+  this is a plain library, not a proc-macro. Grep across src/ found no
+  `include_bytes!`, no `std::process`, no network APIs, no `std::fs`, no
+  `libc::`, no `asm!`, no `#[no_mangle]`. The lone occurrence of the word
+  "unsafe" is a string literal in error/mod.rs:210 mapping `Expr::Unsafe` to
+  the diagnostic string "unsafe". Dependencies are the standard proc-macro
+  stack (proc-macro2, quote, syn, fnv, ident_case) with optional serde and
+  strsim; license MIT, repository github.com/TedDriggs/darling (long-standing
+  upstream).
+  
+  Concerns #2 and #3 (unsafe / miri): N/A — zero `unsafe` blocks or `unsafe fn`
+  in this crate.
+  
+  Concern #4 (correctness bugs): the codegen layer panics in several places
+  (e.g. codegen/from_meta_impl.rs:77 "Multi-field tuples are not supported",
+  codegen/trait_impl.rs:141 "Core loop on enums isn't supported", and similar
+  in variant.rs / variant_data.rs). These all fire at proc-macro expansion
+  time when a downstream derive misuses darling, surfacing as a compile-time
+  panic rather than a graceful Error. Suboptimal UX but not a soundness or
+  runtime concern. The usage/type_params.rs and usage/lifetimes.rs files also
+  panic on currently-unknown syn enum variants ("Unknown syn::Type", etc.);
+  the comments acknowledge this as a TODO to convert to fallible returns.
+  Data::empty_from panics on Unions, but Data::try_empty_from provides the
+  fallible alternative. The `Accumulator` Drop impl deliberately panics if
+  unfinished — this is documented drop-bomb behavior, not a bug.
+  
+  Crate is widely used (foundation of the darling family — millions of
+  downloads/month) and maintained by Ted Driggs, who has shipped this crate
+  for years. The companion darling and darling_macro 0.21.3 reviews are
+  already in this repo; this completes the trio.
+  
+  No issues warranting an `issues:` block. Comfortable depending on this.
+----- SIGN CREV PROOF -----
+UbBTEDOTDrqIAtVHVdRDkjFD8ikAa7sdzHy1ptRGEfCgw4VjITAN9CEgGSQAxq4hqvoH8wZAlyr7uQ1XFZ4EDg
+----- END CREV PROOF -----
+
