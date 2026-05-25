@@ -1,0 +1,9 @@
+[package]
+name = "repro-const_format_proc_macros-0_2_34-panic-double-backslash-u"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+const_format = "=0.2.36"
+const_format_proc_macros = "=0.2.34"

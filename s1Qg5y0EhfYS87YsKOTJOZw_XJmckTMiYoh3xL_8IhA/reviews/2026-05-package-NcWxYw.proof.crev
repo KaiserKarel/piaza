@@ -3142,3 +3142,68 @@ comment: |-
 FC4Y62Dn4SOMPSRdZcoXIwcZKhu2UrT9GYT9jzy3do5VGgXKgTeELOY9E7JAdbeS88V9ShenyjZrTp1g91SLCQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:04:25.191907+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: const_format_proc_macros
+  version: 0.2.34
+  revision: 11db5143f0008b0d6065f42d8a08f29e59fbab1e
+  digest: zGh93FBI58ZgI17S2gALInnndS9AohzwBY-TQmLvppw
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: unicode-escape-misparsed-after-double-backslash
+  severity: medium
+  comment: |
+    `LitStr::parse_from_literal` in src/parse_utils.rs:198 scans the
+    source representation of a string literal for `\u` with
+    `match_indices(r#"\u"#)` and does not account for escaped
+    backslashes. `formatcp!("\\u")` panics at the
+    `value[pos..].find('}').unwrap()` call on line 208; format
+    strings of the form `"\\u{N}"` substitute the wrong character
+    and then panic in the downstream `parse::<TokenStream2>()`
+    unwrap. Reproduction:
+    repros/const_format_proc_macros/0.2.34/panic-double-backslash-u/
+comment: |-
+  Proc-macro implementation crate for `const_format` (companion to
+  const_format-0.2.36 which pins this version with `=0.2.34`).
+  No `unsafe`, no `build.rs`, no fs/net/env/process I/O, no
+  `include_bytes!` blobs. Deps are mainstream: proc-macro2, quote,
+  unicode-xid, optional syn. License (Zlib), repo link, and metadata
+  are consistent with the published source. Nothing in concern #1.
+  
+  Concerns #2 and #3 do not apply (no `unsafe`).
+  
+  Concern #4: there is one functional-correctness bug in
+  `LitStr::parse_from_literal` (src/parse_utils.rs:198-223). The code
+  scans the *source* representation of a string literal for `\u`
+  using `value.match_indices(r#"\u"#)` to expand Rust unicode
+  escapes, but does not respect escaped backslashes — an `\u`
+  occurring inside `\\u` (an escaped backslash followed by `u`) is
+  mistakenly treated as a unicode escape. For the format string
+  `"\\u"` the proc-macro panics at `value[pos..].find('}').unwrap()`
+  (line 208). For `"\\u{HEX}"` the inner `\u{HEX}` is silently
+  substituted with the decoded character, after which the
+  re-tokeniser in `StrRawness::tokenize_sub` typically panics on the
+  resulting invalid escape. Reachable through any `const_format`
+  macro that takes a format string (`formatcp!`, `concatcp!`, etc.).
+  
+  Caps applied: bug panics on plausible input → at most `neutral`.
+  
+  Other minor notes (no rating impact): `respan_to_macro::implementation`
+  panics on malformed input rather than returning a `compile_error!`;
+  `is_path_an_option` indexes `segments[0]` without an explicit
+  non-empty check (relies on a syn invariant).
+----- SIGN CREV PROOF -----
+Z2lSiRGQf4empz2I91_wfodYljRqhrsg1oo7tC3n1tMqoqkgMBQSW7zO2gEoPr86fVrP2S5HPz2W0IYzEqShCw
+----- END CREV PROOF -----
+
