@@ -4032,3 +4032,45 @@ comment: |-
 IIdOmx4ZUppC2vOiTd45zOXA5upULIf-5cqku1_jwdYaLIwHVGi-tKnfRXtqFRaPpf_aYGASMOqLaou9RQlkAQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:54:58.053299+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: darling
+  version: 0.21.3
+  revision: f21aa2c5ccd002f978a18758815bd7e7cdba4741
+  digest: QgpB7Z1NoTj1YAyYgIpHq3zhVIQD_cLcgybZoxc4jdI
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Umbrella facade crate for the darling proc-macro framework. The actual
+  implementation lives in darling_core (=0.21.3) and darling_macro (=0.21.3),
+  which are pinned to exact versions and reviewed separately.
+  
+  Read every file under src/ (lib.rs, macros_public.rs) and Cargo.toml.
+  No build.rs (Cargo.toml sets `build = false`). No unsafe code. No I/O,
+  no network access, no process spawning, no FFI. src/lib.rs is purely
+  `pub use` re-exports plus an `export` module that re-exports core/std
+  types for use by the generated derive code. src/macros_public.rs defines
+  two `macro_rules!` helpers (`uses_type_params!`, `uses_lifetimes!`) that
+  expand to plain trait impls — no token surgery, no codegen of unsafe.
+  
+  Dependencies are the matching darling_core and darling_macro pinned at
+  `=0.21.3`; dev-dependencies (proc-macro2, quote, syn, rustversion,
+  trybuild) are not pulled by consumers. License MIT, repository points to
+  github.com/TedDriggs/darling (the long-standing canonical home).
+  
+  Nothing in this crate to flag. The real review surface is darling_core
+  and darling_macro.
+----- SIGN CREV PROOF -----
+escvuQ8Bp7eDayST7YYWAdLybvOOdkYlqmEw-cXx8Wdd4393Xelcd_HawkRDtq252KU1tEZQjNREsJ8jdXSzDQ
+----- END CREV PROOF -----
+
