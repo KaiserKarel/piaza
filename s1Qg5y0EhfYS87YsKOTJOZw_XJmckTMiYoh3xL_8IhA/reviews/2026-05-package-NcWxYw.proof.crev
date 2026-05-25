@@ -4139,3 +4139,46 @@ comment: |-
 UbBTEDOTDrqIAtVHVdRDkjFD8ikAa7sdzHy1ptRGEfCgw4VjITAN9CEgGSQAxq4hqvoH8wZAlyr7uQ1XFZ4EDg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:04:49.501310+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: darling_macro
+  version: 0.21.3
+  revision: f21aa2c5ccd002f978a18758815bd7e7cdba4741
+  digest: 5wHEQMAAZgEgh3tCjvJLl5bHjy6728GdJeLXkMESBnQ
+review:
+  thoroughness: high
+  understanding: high
+  rating: positive
+comment: |-
+  Tiny proc-macro façade for the darling family (41 LOC). src/lib.rs
+  declares seven `#[proc_macro_derive]` entry points (FromMeta,
+  FromMetaItem, FromAttributes, FromDeriveInput, FromField,
+  FromTypeParam, FromVariant). Each is a one-liner that runs
+  `parse_macro_input!` then delegates to the corresponding
+  `darling_core::derive::*` function. FromMetaItem (line 11) is a
+  deprecation stub that emits a compile error pointing at FromMeta.
+  
+  Concern #1 (malicious / suspicious): no build.rs, no `unsafe`,
+  no `include_bytes!`/`include_str!`, no `std::process`, no network
+  or filesystem APIs, no env reads. Grep across the tree returned
+  zero hits for any of those patterns. Dependencies are `darling_core`
+  (pinned `=0.21.3`, sibling crate by same author, separately reviewed),
+  `quote 1.0.18`, and `syn 2.0.15` — all standard, widely audited.
+  Metadata clean: MIT, repository link to TedDriggs/darling, version
+  matches Cargo.toml.orig, .cargo_vcs_info.json points at
+  path_in_vcs="macro" in the darling repo at sha f21aa2c5.
+  Concerns #2/#3 (unsafe / miri): N/A, zero unsafe.
+  Concern #4 (correctness): nothing to get wrong here — the crate is
+  pure dispatch. All real logic lives in darling_core.
+----- SIGN CREV PROOF -----
+388yXXWTsK6PPUhMbDmqk_TBOqCihFFYWqJ2C6HYLJ-cKVyrkoc3gCHdai4d10Rv8nXQ9xe_9-CQmhLuaZPQAw
+----- END CREV PROOF -----
+
