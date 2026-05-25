@@ -2995,3 +2995,70 @@ comment: |-
 XbX0TvDp8Sksxc8FfvsSaN2MlboQM5V6zj8dWjpLRTZBiJR1gZtDptiy1FY1LyVnEO8X5Ez1833hYS1MMJUSCg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T22:43:15.293347+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: clap_lex
+  version: 1.1.0
+  revision: 9ab6dee710aa384e02ec5e9e2cfeadb2f35abf2a
+  digest: ETOtdD3ApnlVqHRfu6uNzELF4avC0n46VcPElpzqLwQ
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+issues:
+- id: no-miri-in-ci
+  severity: low
+  comment: |
+    Upstream CI (clap-rs/clap .github/workflows/{ci,rust-next}.yml at
+    revision 9ab6dee) does not invoke `cargo miri test`. All five unsafe
+    sites here call `OsStr::from_encoded_bytes_unchecked` / wrap
+    `ext::split_at`, which are miri-testable in principle.
+comment: |-
+  Maintained by clap-rs (long-established CLI parsing project; clap_lex
+  is the tokenizer extracted from the main clap crate). Read every .rs
+  file under src/ (lib.rs, ext.rs) and Cargo.toml. The crate is small
+  (~520 lines lib.rs, ~285 lines ext.rs).
+  
+  Concern #1 (malicious/suspicious): no build.rs (`build = false` in
+  Cargo.toml line 17), no proc-macro, no `include_bytes!`, no
+  `std::process::Command`, no network or libc, no obfuscation. The
+  only `include_*!` is `include_str!("../README.md")` for doctest
+  scaffolding (lib.rs:524, gated on `cfg(doctest)`). Dependencies are
+  empty at runtime; `automod` 1.0.16 (dtolnay) is the sole dev-dep.
+  License is dual MIT/Apache-2.0, repository points to clap-rs/clap,
+  include list (Cargo.toml lines 18-25) is narrow.
+  
+  Concern #2 (unsafe + SAFETY): five `unsafe` sites, all in support of
+  `OsStr::from_encoded_bytes_unchecked` and the `pub(crate) unsafe fn
+  split_at` helper. Every site has a SAFETY (or `# Safety`) comment
+  stating the UTF-8-boundary invariant: ext.rs:204-206 (strip_prefix),
+  ext.rs:229-231 (split_once), ext.rs:272-274 (split_at doc-comment
+  precondition), lib.rs:457 (next_value_os, index from char_indices),
+  lib.rs:483-484 (split_nonutf8_once, valid_up_to from str::from_utf8).
+  All invariants check out; valid UTF-8 boundaries are also valid
+  WTF-8 boundaries (Windows OsStr encoding), so the from_encoded_
+  bytes_unchecked contract is satisfied on both platforms.
+  
+  Concern #3 (miri): unsafe is miri-testable but upstream CI does not
+  run miri (see issues block). Cap rating at `positive`.
+  
+  Concern #4 (correctness): walked through `is_number` for edge cases
+  ("", ".", "1.e2", "1e", "1e2e3"); behavior matches the documented
+  intent. `find` / `split_once` rely on the fact that a valid-UTF-8
+  needle can only match at WTF-8 boundaries within an OsStr —
+  verified by reasoning about which UTF-8 lead bytes coincide with
+  WTF-8 surrogate bytes. `RawArgs::seek` casts usize<->i64<->u64; no
+  overflow on 64-bit targets given Vec length bounds. No bugs
+  reproducible enough to warrant a repro.
+----- SIGN CREV PROOF -----
+JbmSUNwh_QqqDby6OlZoGnX6weicxMc3scPnTPiN7nL82g25hc74TSsVgw1Mn_s8fVwoWWzIPdxsJe4CVLT5CQ
+----- END CREV PROOF -----
+
