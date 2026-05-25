@@ -81,11 +81,23 @@ n_other=$(echo "$changed" | grep -vE \
     "^[^/]+/reviews/.*\.proof\.crev$|^review-logs/$name/$version/.*\.log$|^repros/$name/$version/" \
     | grep -c . || true)
 
-if [[ "$n_proofs" -ne 1 || "$n_logs" -ne 1 || "$n_other" -ne 0 ]]; then
+# A single staged .proof.crev file can contain N new proof BLOCKS — the
+# file-level count won't catch a previous failed review that left an
+# orphan block behind. So count `BEGIN CREV PROOF` markers added in the
+# staged diff and require exactly one. This is the load-bearing check.
+n_proof_blocks=$(git diff --cached -- "*/reviews/*.proof.crev" \
+    | grep -c "^+----- BEGIN CREV PROOF -----$" || true)
+
+if [[ "$n_proofs" -ne 1 || "$n_logs" -ne 1 || "$n_other" -ne 0 || "$n_proof_blocks" -ne 1 ]]; then
     echo "error: staged diff doesn't match expected shape" >&2
-    echo "       expected: 1 proof + 1 log + 0+ repro files under repros/$name/$version/" >&2
-    echo "       got:      $n_proofs proofs, $n_logs logs, $n_other other" >&2
+    echo "       expected: 1 proof file + 1 proof block + 1 log + 0+ repros" >&2
+    echo "       got:      $n_proofs proof files, $n_proof_blocks proof blocks, $n_logs logs, $n_other other" >&2
     echo "$changed" >&2
+    if [[ "$n_proof_blocks" -gt 1 ]]; then
+        echo "       -> the proof file has orphan blocks from a previous failed review." >&2
+        echo "          run \`git checkout HEAD -- */reviews/*.proof.crev\` to drop them," >&2
+        echo "          then retry." >&2
+    fi
     exit 1
 fi
 
@@ -96,11 +108,39 @@ fi
 digest=$("$repo_root/scripts/list-reviewed.py" \
     | awk -F'\t' -v n="$name" -v v="$version" '$1==n && $2==v {print $3; exit}')
 
-git commit -m "review $name $version ($slug)
+# Retry the commit on transient signing failures (the 1Password SSH agent
+# is the usual culprit during unattended ticks — it sometimes drops the
+# socket connection and recovers a few seconds later). We retry up to 3
+# times, waiting 5s between attempts. Non-signing failures fall through
+# on the first try.
+commit_msg="review $name $version ($slug)
 
 source: crates.io
 digest: ${digest:-unknown}
 harness: $slug
 "
+attempt=1
+while true; do
+    if git commit -m "$commit_msg" 2>/tmp/commit-stderr.$$; then
+        rm -f /tmp/commit-stderr.$$
+        break
+    fi
+    err=$(cat /tmp/commit-stderr.$$)
+    rm -f /tmp/commit-stderr.$$
+    # Only retry on signing-agent failures; fail fast on everything else.
+    if ! echo "$err" | grep -qE "1Password|gpg failed|signing failed|gpg.program|ssh-keygen"; then
+        echo "$err" >&2
+        echo "error: git commit failed for non-signing reason; not retrying." >&2
+        exit 1
+    fi
+    if [[ "$attempt" -ge 3 ]]; then
+        echo "$err" >&2
+        echo "error: git commit failed after $attempt signing-related retries." >&2
+        exit 1
+    fi
+    echo "  signing attempt $attempt failed; retrying in 5s..." >&2
+    sleep 5
+    attempt=$((attempt + 1))
+done
 
 echo "committed review of $name $version under $slug" >&2

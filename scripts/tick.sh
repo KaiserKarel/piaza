@@ -216,8 +216,22 @@ EOF
                 # Claude returned 0 but no new commit landed. Most common
                 # cause: commit-proof.sh failed (signing broken, etc.) and
                 # claude reported the failure narratively but still exited
-                # cleanly. Treat as a failure so the operator can see it.
-                echo "[$name $version] FAILED: no new commit despite claude exit=0; staged state may be dirty" >&2
+                # cleanly. Treat as a failure AND revert any half-applied
+                # state — otherwise the next iteration's commit-proof.sh
+                # sees orphan proof blocks in the .proof.crev file and
+                # either cascade-fails or (worse) silently bundles them
+                # into the next successful commit.
+                echo "[$name $version] FAILED: no new commit despite claude exit=0; reverting partial state" >&2
+                git reset HEAD >/dev/null 2>&1 || true
+                shopt -s nullglob
+                for proof_file in */reviews/*.proof.crev; do
+                    git checkout HEAD -- "$proof_file" 2>/dev/null || true
+                done
+                shopt -u nullglob
+                # The log was created by tick.sh's header write + claude's
+                # appended output. Since the review didn't commit, the log
+                # has no canonical place; drop it.
+                rm -f "$log_file"
                 failures=$((failures + 1))
             else
                 # Claude itself exited non-zero — already logged above.
