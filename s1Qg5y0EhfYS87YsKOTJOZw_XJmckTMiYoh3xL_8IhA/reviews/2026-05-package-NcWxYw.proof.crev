@@ -1994,3 +1994,66 @@ comment: |-
 SItGU7hYTAgAno38nL-Ci3_O9LAHCJnQMPo1b5DOAl1h6GW5shFaZbpSZAGMamBZSY6RAOcx6NYhfW0Fgg2RCQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T17:27:57.303348+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bumpalo
+  version: 3.20.3
+  revision: 84654ace6be4444da3ff102a0a0af3b38c4df4fb
+  digest: ZUqnNjfu0lomt7X4NvJaKIrqv9CdwuJ4Hx8mTdVTxJo
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+comment: |-
+  Bump allocator arena by Nick Fitzgerald (fitzgen). MIT/Apache-2.0,
+  https://github.com/fitzgen/bumpalo. Diff vs 3.20.2 is small and
+  targeted at two changelog-noted fixes.
+  
+  Concern #1 (malicious code): no build.rs, no proc-macros, no
+  include_bytes!, no process/network/FS APIs. Dependencies unchanged
+  (optional serde, allocator-api2). Cargo.toml still excludes
+  /.github/*, /benches, /tests from the package, so I could not inspect
+  miri-in-CI directly. Nothing suspicious in the published source.
+  
+  Concern #2 (unsafe without SAFETY): new RewindGuard at lib.rs:62-161
+  has a thorough /// # Safety block on `new` (lib.rs:82-95) naming all
+  four invariants the caller must uphold; the Drop impl explains the
+  same-chunk vs. new-chunk reclamation reasoning inline (lib.rs:124-158).
+  Call sites in alloc_slice_(try_)fill_with at lib.rs:1547-1665 wrap
+  ptr::write loops in the standard one-unsafe-block-per-function pattern
+  bumpalo uses elsewhere. Reworked DrainFilter::drop (collections/vec.rs:
+  2955-3008) ports std's BackshiftOnDrop guard pattern; no per-block
+  SAFETY comments but the operations are bounds-respecting slice writes
+  consistent with the rest of the file.
+  
+  Concern #3 (miri): unsafe remains miri-testable (raw pointer math, no
+  FFI/syscalls/asm). Cannot verify miri-in-CI from packaged crate (per
+  #1). Upstream is known to run miri but I am not relying on that here;
+  cap at positive per the rubric.
+  
+  Concern #4 (correctness): the changelog fixes look right.
+  - RewindGuard correctly reclaims the bump pointer only when the
+    guarded allocation is still the most-recent one (is_last_allocation
+    check at lib.rs:120); if `f` itself allocated inside the bump,
+    rewind is skipped and memory leaks rather than corrupting an
+    interleaved allocation. The new-chunk branch (lib.rs:136-157)
+    correctly resets to round_mut_ptr_down_to(footer, MIN_ALIGN), which
+    matches new_chunk's initial ptr setup (lib.rs:1010).
+  - DrainFilter's new Drop creates BackshiftOnDrop *before* calling
+    `self.pred` so a predicate panic mid-iteration leaves the vec in a
+    valid state (collections/vec.rs:2982-2987). guard.idx is bumped
+    *after* pred returns but *before* drop_in_place, so a panicking
+    drop also leaves the bookkeeping consistent.
+  No reproducible bug found.
+----- SIGN CREV PROOF -----
+ZyEWPlWSBEs39O6syrveEf4B_WLEuJbP2igQpOgfCtT4ELz3kHU2Ou40DbFkwLbnKBOWt4WUNhivToefOMVPBA
+----- END CREV PROOF -----
+
