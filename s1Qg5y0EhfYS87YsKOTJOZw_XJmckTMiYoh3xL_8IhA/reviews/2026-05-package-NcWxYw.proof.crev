@@ -4411,3 +4411,48 @@ comment: |-
 t4PcJpgJtKvmgSoiL3k07fkRnrFzOmg6ZDB--F7SzejSDoSgnhcFNuYQLKiRDdykU4hixmiebNqfc_NfxUXIDQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:21:30.951691+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: doc-comment
+  version: 0.3.4
+  revision: 2cf5d3c8595374191ed587e9476e99b410f377d3
+  digest: WiRnvL8LvYfyAXgXp1GahZokO4zoqwtzPSRhAERUuK8
+review:
+  thoroughness: high
+  understanding: high
+  rating: positive
+comment: |-
+  Tiny crate: one `lib.rs` (~235 lines incl. doc comments) and a
+  ~25-line `build.rs`. Read every file end-to-end.
+  
+  Surface: two `macro_rules!` macros, `doc_comment!` and `doctest!`,
+  expanding to `#[doc = $x] extern {}` or `#[doc = $x] $item`. Purely
+  syntactic, no proc-macro, no runtime code.
+  
+  `build.rs` shells out to `rustc --version` and, if the version is
+  pre-1.30, sets `cargo:rustc-cfg=feature="old_macros"` to enable the
+  legacy macro form (no `$crate::` path qualification). The use of
+  `std::process::Command` is limited to that one invocation and only
+  reads stdout — no network access, no writes outside `OUT_DIR`,
+  nothing parsed from env vars. Matches the documented purpose.
+  
+  No `unsafe` anywhere — concerns #2 and #3 don't apply. No
+  dependencies. License (MIT) and repository link match the published
+  metadata.
+  
+  Per the crate's own README, this is obsolete from Rust 1.54+
+  (you can write `#[cfg_attr(doctest, doc = include_str!("..."))]`
+  directly). Still widely used as a transitive dep. No correctness
+  issues found in the macro expansions.
+----- SIGN CREV PROOF -----
+JzuZeAn91_GCG1bES6NB4EwmLmxaLMt5-3UoFYrA4li6qRGTuI7SR9cGVu_sjJaSCNHDfF_88eKd-QSlhF0tCQ
+----- END CREV PROOF -----
+
