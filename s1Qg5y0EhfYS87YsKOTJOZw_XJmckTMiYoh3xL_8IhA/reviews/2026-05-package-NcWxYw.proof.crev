@@ -2868,3 +2868,55 @@ comment: |-
 mC2vXRCWL6_aHgQSSUcWO7pG1_XaLEF9bQwJ4Dn1Y0_iCYZxnJLRAv2YooXAQVJdg3zk83grrSIHn0L4-pOADA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T22:30:17.622177+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: clap
+  version: 4.6.1
+  revision: ac5fda6a799e4c640d671edd1111d4a5e723dc1a
+  digest: T7b__TBwfEzWvz1uVOB_pDfndTJEZsHET6zdLC9sxFs
+review:
+  thoroughness: medium
+  understanding: high
+  rating: strong
+comment: |-
+  Facade crate: re-exports `clap_builder = "=4.6.0"` and (optionally)
+  `clap_derive = "=4.6.1"`. Has no parsing logic of its own. The real
+  attack surface lives in those two dependencies and must be reviewed
+  separately - this proof covers only the wrapper.
+  
+  Read all .rs files under src/ (588 lines total, mostly `//!` doc
+  modules gated on the `unstable-doc` feature: _concepts.rs, _faq.rs,
+  _features.rs, _tutorial.rs, _cookbook/*, _derive/*).
+  
+  Concern #1 (malicious/suspicious): clean.
+  - No build.rs (`build = false` in Cargo.toml line 17).
+  - Not itself a proc-macro (no `proc-macro = true`); derive lives in
+    clap_derive, pulled in only with the `derive` feature.
+  - lib.rs body is `pub use clap_builder::*;` plus optional re-export
+    of derive macros and cfg-gated doc modules. No I/O, no env reads,
+    no shelling out, no `include_bytes!` of binary blobs.
+  - src/bin/stdio-fixture.rs is a small test fixture that builds a
+    Command and calls get_matches(); not run during normal use.
+  - License MIT OR Apache-2.0; repo github.com/clap-rs/clap; clap-rs
+    is a long-standing, widely-used CLI project.
+  
+  Concern #2 (unsafe w/o SAFETY): n/a. lib.rs line 85 sets
+  `#![forbid(unsafe_code)]`, so no unsafe is even compilable here.
+  Grep for `unsafe` across src/ returns only that forbid directive.
+  
+  Concern #3 (unsafe w/o miri): n/a - no unsafe to validate.
+  
+  Concern #4 (correctness bugs): nothing to find in a facade. No
+  algorithmic code, no parsing, no arithmetic on untrusted input.
+----- SIGN CREV PROOF -----
+4g5UWVrodMbLXXbqk0zq11CBTSiErXhyTCYSAoTRgiRB8Y-_JxT1Fjv2vQccHUB1YzpbkTt_sG3lyhTjMkISBA
+----- END CREV PROOF -----
+
