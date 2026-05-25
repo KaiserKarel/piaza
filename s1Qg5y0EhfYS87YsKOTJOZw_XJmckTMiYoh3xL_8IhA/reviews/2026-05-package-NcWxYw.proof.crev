@@ -1927,3 +1927,70 @@ comment: |-
 eekLPKP4ftD_X4lreAvbxsWvy-W3mTEmozG_PeJRaqHK9ASIHkiQxVwhDhU5mXnrkr5BvjTKJFAH6kWzSt1MBQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T16:09:30.757563+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bumpalo
+  version: 3.20.2
+  revision: 1aad072f93d8a4cf5885446ead554927c7c94f9c
+  digest: p9rLNARqyxHqoK2A32L4Rj_AuOABdRHdpZdVVp_CDaQ
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+comment: |-
+  Bump allocator arena by Nick Fitzgerald (fitzgen), widely used in the Rust
+  ecosystem (wasm-bindgen, swc, etc.). MIT/Apache-2.0, repository
+  https://github.com/fitzgen/bumpalo.
+  
+  Concern #1 (malicious code): no build.rs, no proc-macros, no
+  include_bytes! of opaque blobs, no network/FS/process APIs anywhere in
+  the source. Dependencies are minimal and reputable (optional serde and
+  allocator-api2). `Cargo.toml` excludes tests/benches/CI from the
+  packaged crate, so I could not inspect `.github/workflows/`. Nothing
+  suspicious in the published source.
+  
+  Concern #2 (unsafe without SAFETY): the crate is unsafe-heavy by
+  necessity — it implements a bump arena. lib.rs has ~65 `unsafe`
+  occurrences, raw_vec.rs ~17, vec.rs ~64, string.rs ~35. SAFETY
+  documentation is uneven: well-reasoned in newer code (e.g.
+  alloc_try_with at lib.rs:1199-1259 explains why ptr::read of the Err is
+  sound; Box impls at boxed.rs:589-603, 697-700 give crisp justifications;
+  EmptyChunkFooter at lib.rs:332-353 explains the Sync), but the
+  std-library forks under `collections/` rely on inherited per-function
+  contracts rather than per-block SAFETY tags. None of the unsafe I
+  inspected has demonstrably wrong reasoning; debug_assert! invariants
+  (alignment, range, capacity) are dense and consistent with the prose.
+  
+  Concern #3 (miri): the unsafe is miri-testable (raw-pointer arithmetic,
+  transmute, lifetime extension; no FFI/syscalls/asm). I could not verify
+  miri-in-CI from the packaged crate because `.github/*` is excluded.
+  Upstream is known to run miri, but I am not relying on that here.
+  Treating this as "unsafe, no verified miri" → cap at positive per the
+  rubric.
+  
+  Concern #4 (correctness): overflow handling is explicit (round_up_to
+  returns Option, checked_add/checked_mul throughout, alloc_guard for
+  32-bit isize::MAX). The fast-path allocator at try_alloc_layout_fast
+  (lib.rs:1888-1981) uses wrapping_sub safely guarded by capacity
+  comparisons. The shrink path at lib.rs:2284-2334 includes a careful
+  comment explaining why `(old_size + 1) / 2` (round-up division) is
+  required to avoid overlapping copy_nonoverlapping. The
+  alloc_try_with rewind logic is subtle but reasoned through correctly
+  (last-allocation check, single-allocation-in-chunk argument). I did
+  not find a reproducible bug.
+  
+  3.20.2 specifically restores `Send`/`Sync` impls for `Box<'_, T: ?Sized>`
+  at boxed.rs:697,700 — justification is correct (Box has exclusive
+  ownership of T).
+----- SIGN CREV PROOF -----
+SItGU7hYTAgAno38nL-Ci3_O9LAHCJnQMPo1b5DOAl1h6GW5shFaZbpSZAGMamBZSY6RAOcx6NYhfW0Fgg2RCQ
+----- END CREV PROOF -----
+
