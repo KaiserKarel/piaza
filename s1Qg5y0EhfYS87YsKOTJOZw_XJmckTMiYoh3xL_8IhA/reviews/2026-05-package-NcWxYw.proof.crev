@@ -1858,3 +1858,72 @@ comment: |-
 2lG3WNlL6Mln-AEtj3_kXJjFfYfm2eRq___mI9SmHRiSj9w9I2Ge19MCr4y2PTxzHU6q4C84l3Bz8M0BYJuQDQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T16:05:43.804547+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bstr
+  version: 1.12.1
+  revision: a90f36f0de8c984662c49fb5742027ca24a88cbb
+  digest: 6-OhZ21OOxq27qfZxY5cF81uCalrvdCW3Bhjn0o6C4Q
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Patch release over 1.12.0 (which I reviewed previously). Diff vs 1.12.0
+  is minuscule: src/lib.rs swaps the docs.rs nightly feature attr from
+  `doc_auto_cfg` to `doc_cfg`; src/ext_slice.rs adds an explicit `'_`
+  lifetime on a `Cow<OsStr>` return and tweaks one doc-comment link to
+  `[BString](crate::BString)`. Cargo.toml is just the version bump. The
+  precompiled regex-automata DFAs under src/unicode/fsm/*.dfa are
+  byte-identical to 1.12.0 (verified with `diff -rq`). No new code paths,
+  no new dependencies, no new unsafe. Cargo.lock dev-dep bumps don't
+  affect consumers.
+  
+  Carrying forward findings from the 1.12.0 review:
+  
+  Byte-string extension crate by BurntSushi (Andrew Gallant), author of
+  memchr, regex, and ripgrep. No build.rs (build = false in Cargo.toml),
+  no proc-macros, no network or process spawning. Embedded binary data
+  is limited to the precompiled regex-automata sparse DFAs under
+  src/unicode/fsm/*.dfa loaded via the safe `DFA::from_bytes` API. No
+  malicious or suspicious behavior observed.
+  
+  Unsafe usage falls into three buckets:
+  1. Casts between &[u8] and &BStr (bstr.rs:73,78,84,90). Sound because
+     `#[repr(transparent)] struct BStr { bytes: [u8] }`, but the unsafe
+     blocks lack explicit `// SAFETY:` comments.
+  2. `str::from_utf8_unchecked` after `utf8::validate` succeeds. These
+     have proper `// SAFETY:` comments in ext_slice.rs / ext_vec.rs /
+     utf8.rs.
+  3. Pointer-arithmetic SIMD/scalar fast paths in ascii.rs and
+     byteset/scalar.rs. The `unsafe { ... }` blocks wrap whole function
+     bodies (ascii.rs:62,129; byteset/scalar.rs:28,67) and contain only
+     `debug_assert!`s rather than `// SAFETY:` justifications.
+     Invariants are defensible but not stated in canonical form.
+  
+  Per the SAFETY-comment rule, this caps the rating at `neutral`.
+  
+  Miri: crate is miri-aware (`#[cfg(miri)]` swaps SIMD for scalar and
+  shrinks quickcheck ranges) but the upstream `.github/workflows/ci.yml`
+  miri job is still commented out at the 1.12.1 vcs sha. The unsafe in
+  ascii.rs and byteset/scalar.rs is pure-Rust pointer arithmetic and
+  would be miri-testable. Supports the `neutral` cap.
+  
+  Functional correctness: no reproducible bugs found. UTF-8 decoder is
+  a Hoehrmann DFA; Split / Lines / LinesWithTerminator iterators look
+  correct; insert_str's ptr::copy is guarded by `reserve(bytes.len())`.
+  
+  Dependencies unchanged: memchr, regex-automata (both BurntSushi),
+  optional serde. License MIT OR Apache-2.0.
+----- SIGN CREV PROOF -----
+eekLPKP4ftD_X4lreAvbxsWvy-W3mTEmozG_PeJRaqHK9ASIHkiQxVwhDhU5mXnrkr5BvjTKJFAH6kWzSt1MBQ
+----- END CREV PROOF -----
+
