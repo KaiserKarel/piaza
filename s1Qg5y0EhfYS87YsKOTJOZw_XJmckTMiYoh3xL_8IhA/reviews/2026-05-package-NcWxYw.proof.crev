@@ -3807,3 +3807,52 @@ comment: |-
 iXIm0N5VJ8GNUgwfO2qJREGtUSmjDgU8bQ6-4BLxXWzfs6igVGYtdORoz92-NKNROfnSJWO6zGOYp4DMI7HtAw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:38:00.595709+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: crunchy
+  version: 0.2.4
+  revision: ba7b86cea6ba89ccfc72ccb24cc4a4ac6d9c6272
+  digest: EmRvsxPLTu_cEn3bQ5YE72F6Y3Cwhtx2gCLC_T6z9eY
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Tiny crate (one src/lib.rs that is just `include!(...)`) that generates a
+  `unroll!` macro_rules! definition at build time from build.rs. No
+  dependencies. License MIT. Repository link matches the author's GitHub.
+  
+  Concern #1 (malicious/suspicious): build.rs reads OUT_DIR, writes a single
+  generated `lib.rs` under it, and emits exactly one cargo directive
+  (`cargo:rustc-env=CRUNCHY_LIB_SUFFIX=<sep>lib.rs`). No network, no shelling
+  out, no env-var probing, no writes outside OUT_DIR. The included file is
+  pulled in via `include!(concat!(env!("OUT_DIR"), env!("CRUNCHY_LIB_SUFFIX")))`
+  in src/lib.rs:36 — slightly more convoluted than the usual
+  `include!(concat!(env!("OUT_DIR"), "/lib.rs"))` pattern, but not malicious;
+  it splits the path separator via `std::path::MAIN_SEPARATOR`.
+  
+  Concerns #2 and #3 (unsafe / miri): No `unsafe` anywhere — grep is clean.
+  
+  Concern #4 (correctness): The macro logic is straightforward. The empty
+  range `0..0` is handled explicitly by the first rule producing nothing.
+  Non-zero starts go through a `@`-helper that emits N const-bound iterations
+  guarded by a `$v >= $start` check; step_by is converted to a contiguous
+  index range with a multiplicative remapping. Ranges above the compile-time
+  cap (default 128, configurable 64/256/512/1024/2048) fail to expand —
+  documented behavior.
+  
+  Minor: the crate-level doc in src/lib.rs says the default limit is 64,
+  while Cargo.toml's `default = ["limit_128"]` and README both say 128 —
+  doc drift only, no behavior impact.
+----- SIGN CREV PROOF -----
+GuW8BX1MThhjk_0G05crIAuoeLXENWKDoibszkwwPatdd4d4wzR6lD7yqj5ChSJiSjE3O75XUuXB8ICPIs6YBQ
+----- END CREV PROOF -----
+
