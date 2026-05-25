@@ -1790,3 +1790,71 @@ comment: |-
 LuMxaQwEJLtN_TYScqfpeJ9avR8STe067vTcPfQhAPg6Vnu5A4Ybt_JiiARNps5wOXIe0ODk7CqdgKYri4wADA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T16:03:15.265790+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bstr
+  version: 1.12.0
+  revision: 8904072067fca9ca993f7234a2dacad1c362afa7
+  digest: gKWaxDZH4UKi23xRDZNR9CVqMcFzHsdInuI4VWNiRsA
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Byte-string extension crate by BurntSushi (Andrew Gallant), author of memchr,
+  regex, and ripgrep. Widely used, mature 1.X series. No build.rs (build = false
+  in Cargo.toml), no proc-macros, no network or process spawning. Only embedded
+  binary data is the precompiled regex-automata sparse DFAs under
+  src/unicode/fsm/*.dfa (grapheme/word/sentence/whitespace break tables);
+  these are loaded via the safe `DFA::from_bytes` API. No malicious or
+  suspicious behavior observed.
+  
+  Read: lib.rs, bstr.rs, bstring.rs, ascii.rs, byteset/{mod,scalar}.rs,
+  escape_bytes.rs, ext_slice.rs (main code paths plus iterators and the
+  SAFETY-bearing blocks), ext_vec.rs (insert_str + conversion paths),
+  utf8.rs, io.rs, unicode/{mod,grapheme,fsm/mod,fsm/grapheme_break_fwd}.rs.
+  Scanned the rest with Grep for unsafe / process / Command / libc / network
+  APIs — clean.
+  
+  Unsafe usage falls into three buckets:
+  1. Casts between &[u8] and &BStr (bstr.rs:73,78,84,90). Sound because
+     `#[repr(transparent)] struct BStr { bytes: [u8] }`, but the unsafe
+     blocks lack explicit `// SAFETY:` comments.
+  2. `str::from_utf8_unchecked` after `utf8::validate` succeeds. These have
+     proper `// SAFETY:` comments in ext_slice.rs / ext_vec.rs / utf8.rs.
+  3. Pointer-arithmetic SIMD/scalar fast paths in ascii.rs and
+     byteset/scalar.rs. The `unsafe { ... }` blocks wrap whole function
+     bodies (ascii.rs:62, 129; byteset/scalar.rs:28, 67) and contain only
+     `debug_assert!`s rather than `// SAFETY:` justifications. Invariants
+     are defensible (length checks before pointer-add, alignment-mask
+     adjustments) but not stated in canonical form.
+  
+  Per the SAFETY-comment rule, this caps the rating at `neutral`.
+  
+  Miri: the crate is miri-aware — `#[cfg(miri)]` flips the x86_64 SIMD
+  path to a scalar fallback and dials down quickcheck/test ranges so miri
+  runs are tractable. However the upstream `.github/workflows/ci.yml`
+  (verified at the published vcs sha 8904072067) has the `miri:` job
+  commented out, so miri is not actually run in CI on this release. The
+  unsafe in ascii.rs and byteset/scalar.rs is pure-Rust pointer arithmetic
+  and would be miri-testable. This further supports the `neutral` cap.
+  
+  Functional correctness: no reproducible bugs found. UTF-8 decoder is a
+  textbook Hoehrmann DFA; Split / Lines / LinesWithTerminator iterators
+  look correct; insert_str's ptr::copy is guarded by a `reserve(bytes.len())`
+  so the destination range is in-bounds.
+  
+  Dependencies: memchr, regex-automata (both BurntSushi), optional serde.
+  License MIT OR Apache-2.0.
+----- SIGN CREV PROOF -----
+2lG3WNlL6Mln-AEtj3_kXJjFfYfm2eRq___mI9SmHRiSj9w9I2Ge19MCr4y2PTxzHU6q4C84l3Bz8M0BYJuQDQ
+----- END CREV PROOF -----
+
