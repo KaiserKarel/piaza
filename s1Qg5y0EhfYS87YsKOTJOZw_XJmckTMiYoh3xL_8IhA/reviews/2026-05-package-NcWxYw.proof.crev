@@ -1368,3 +1368,107 @@ comment: |-
 Do0Rh4N5eeoiiwnY5pHVQOgQhBxUKpA_NShnrVF29mllD7B60-bShbIbzKkMidjH1Xd9i0Tu11dtEquCrs2OAw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T10:47:27.916033+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bit-vec
+  version: 0.8.0
+  revision: 16d8d5ed27e9d379ae5d531ffcf7535cd02ef8f3
+  digest: PYrBjLnVwr7SjKJIWCYJiAP6DxDGABFM_w7VMMAQZOs
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: split-off-excess-storage-block
+  severity: medium
+  comment: |
+    `BitVec::split_off(at)` (src/lib.rs:1218) can leave the returned
+    BitVec with `storage.len() == ceil(nbits / B::bits()) + 1`,
+    breaking the documented invariant (2) "the underlying vector has
+    no excess length". Triggers when `at % B::bits() != 0` AND
+    `self.nbits % B::bits() <= at % B::bits()`: the function pushes
+    `self.storage.len() - w` blocks unconditionally, but the final
+    pushed block (`last >> b`) is zero in that case and should be
+    omitted. `is_last_block_fixed` doesn't catch this because it
+    returns `true` whenever `nbits % B::bits() == 0`.
+
+    The excess block silently breaks `count_ones`/`count_zeros`/
+    `none`/`any` after any subsequent operation that flips it (e.g.
+    `negate`), and breaks the Hash/Eq invariant immediately (two
+    semantically-equal BitVecs hash to different values). No
+    memory-safety impact; just wrong results.
+    Reproduction: repros/bit-vec/0.8.0/split-off-excess-storage/
+- id: weak-safety-docs-on-unsafe-fns
+  severity: low
+  comment: |
+    `BitVec::storage_mut` (src/lib.rs:468) is `pub unsafe fn` doc'd
+    only as "Can probably cause unsafety. Only really intended for
+    `BitSet`." `BitVec::set_len` (src/lib.rs:1594) similarly: "Almost
+    certainly can cause bad stuff. Only really intended for `BitSet`."
+    Neither names the actual invariants the caller must uphold
+    (storage layout, last-block mask, nbits <= storage.len()*B::bits()).
+    `get_unchecked`/`get_unchecked_mut` do have proper `# Safety`
+    sections. Caps the rating at `neutral` per rubric §2.
+comment: |-
+  ~2 kLOC pure-Rust bit-vector crate, edition 2015, `no_std`-capable.
+  Originally `std::collections::BitVec` extracted from rustc; current
+  maintainer is Alexis Beingessner / contain-rs. Read all of
+  src/lib.rs (3186 lines, of which ~1200 are tests), Cargo.toml,
+  .github/workflows/rust.yml, README.md, RELEASES.md, benches/bench.rs.
+  
+  Concern #1 (malicious/suspicious): clean. No build.rs
+  (`build = false` in Cargo.toml). No proc-macro. No `include_bytes!`,
+  no `std::process::Command`, no network APIs, no inline asm, no
+  `transmute`, no `libc` calls. Optional serialization deps (serde,
+  borsh, miniserde, nanoserde) are reputable and feature-gated.
+  License Apache-2.0 OR MIT, repository link valid.
+  
+  Concern #2 (unsafe + SAFETY): four `unsafe fn` items, zero
+  `unsafe { }` blocks. `get_unchecked` (line 586) and
+  `get_unchecked_mut` (line 638) carry proper `# Safety` rustdoc
+  sections naming the precondition ("out-of-bounds index is undefined
+  behavior"). `storage_mut` (line 468) and `set_len` (line 1594)
+  have only hand-wavy doc comments that don't name the invariants
+  the caller must uphold — these break invariants (1)/(2)/(3) at the
+  top of the file if misused. Caps the rating at `neutral`.
+  
+  Concern #3 (miri): CI (.github/workflows/rust.yml:24-35) runs
+  `MIRIFLAGS=-Zmiri-strict-provenance cargo miri test` on every push.
+  The unsafe surface is small and pure-Rust (Vec::get_unchecked,
+  field assignment), well within miri's reach. No additional cap.
+  
+  Concern #4 (correctness): one reproducible bug. `split_off`
+  (line 1218) can produce a BitVec with one excess zero block in
+  its storage when `at` falls inside a block and the source's tail
+  bits shift entirely out of the last pushed block. The excess block
+  silently breaks `count_ones`/`count_zeros`/`none`/`any` after any
+  later operation that flips it (e.g. `negate`), and breaks the
+  Hash/Eq invariant immediately. Demonstrated by
+  repros/bit-vec/0.8.0/split-off-excess-storage/.
+  
+  Other notable spots, all benign in practice:
+    - Serde/borsh/miniserde/nanoserde derives are field-wise with no
+      invariant validation on deserialization. A maliciously crafted
+      payload can produce a BitVec violating invariants (2)/(3), but
+      since `get_unchecked` is `unsafe`, this only yields wrong results
+      from the safe API (panics or wrong counts), not UB.
+    - `append` and the inner step of `grow` use plain `+=` on
+      `self.nbits` (only the entry of `grow` does `checked_add`).
+      Reachable only at usize::MAX-scale bit counts.
+  
+  Rating: neutral — capped by the missing/weak SAFETY docs (§2) AND
+  the `split_off` correctness bug (§4 → at most `neutral`).
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules.
+----- SIGN CREV PROOF -----
+9YLJ-l2HYZ3IVsV1yKGLn_hTqfvSvfHD0JiPU5qIcX8ElJIJyhQBx3nrPSXjBmkvYbyi0_oPt_AItGIQqbdGCg
+----- END CREV PROOF -----
+

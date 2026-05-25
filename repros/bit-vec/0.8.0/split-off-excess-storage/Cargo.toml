@@ -1,0 +1,8 @@
+[package]
+name = "repro-bit-vec-0_8_0-split-off-excess-storage"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bit-vec = "=0.8.0"
