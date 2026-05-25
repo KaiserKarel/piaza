@@ -4182,3 +4182,53 @@ comment: |-
 388yXXWTsK6PPUhMbDmqk_TBOqCihFFYWqJ2C6HYLJ-cKVyrkoc3gCHdai4d10Rv8nXQ9xe_9-CQmhLuaZPQAw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:06:21.533288+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: derive_arbitrary
+  version: 1.4.2
+  revision: dc22fdefd5456a0f4d2f190c6d3e017e3c7ddd8e
+  digest: hxqMbjg2-rybdRxnvmfJz7HYr12_g2a-3CHgEJP8g_M
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Companion proc-macro crate to `arbitrary`, implementing `#[derive(Arbitrary)]`.
+  Authored by the rust-fuzz project (fitzgen, manishearth, et al.).
+  
+  Read in full: Cargo.toml (proc-macro = true, deps = proc-macro2/quote/syn
+  only), README, and all four source files: src/lib.rs (517 lines),
+  src/container_attributes.rs, src/field_attributes.rs,
+  src/variant_attributes.rs.
+  
+  Concern checks:
+  1. Malicious/suspicious: no build.rs; no `unsafe`, `include_bytes!`,
+     `std::process`, `libc`, network, or filesystem APIs (grep confirmed
+     only URL/comment hits). The proc-macro body purely transforms a
+     DeriveInput into a tokenized `impl Arbitrary` via syn/quote — no
+     side effects at macro-expansion time. Deps are the canonical
+     proc-macro trio at recent, well-known versions.
+  2. unsafe without SAFETY: no unsafe present.
+  3. miri coverage: N/A (no unsafe).
+  4. Functional correctness: straightforward derive plumbing. Variant
+     indexing uses the standard multiply-shift ranged-random trick
+     (Lemire); `(u32 * count) >> 32 < count` makes the `unreachable!()`
+     arm sound. `variants.len() as u64` is fine — proc-macro inputs cap
+     at a few thousand variants in practice. `f.ident.as_ref().unwrap()`
+     in `construct` is gated by `Fields::Named`. Attribute parsing
+     errors propagate via `syn::Error` rather than panicking.
+  
+  No issues to file. License MIT OR Apache-2.0, repository link present
+  and active.
+----- SIGN CREV PROOF -----
+2CdcSTvkzNZKgYkATE2DTYNXw75Osc_6tcGHcD84v-8oeDaZKeAXP_d3AV-Tsfl57ts7sPY4sgatZJDSm1ZZAg
+----- END CREV PROOF -----
+
