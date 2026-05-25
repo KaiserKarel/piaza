@@ -2920,3 +2920,78 @@ comment: |-
 4g5UWVrodMbLXXbqk0zq11CBTSiErXhyTCYSAoTRgiRB8Y-_JxT1Fjv2vQccHUB1YzpbkTt_sG3lyhTjMkISBA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T22:37:23.007154+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: clap_builder
+  version: 4.6.0
+  revision: 9ab6dee710aa384e02ec5e9e2cfeadb2f35abf2a
+  digest: o3QNxA5x46bcFYD3xFXpRijl6p_QidA3fR-fwhjG5J0
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+comment: |-
+  Real builder implementation behind the `clap` facade (`clap` 4.6.1 re-exports
+  `clap_builder = "=4.6.0"`). ~29k lines of Rust under src/. Published by the
+  clap-rs project (well-established, the de-facto Rust argument parser).
+  Read entry points (lib.rs, derive.rs, macros.rs, mkeymap.rs), the parser
+  (parser/parser.rs, validator.rs, arg_matcher.rs, matches/*, features/
+  suggestions.rs), output (textwrap/*, help_template.rs, usage.rs, styled_str.rs,
+  fmt.rs), builder (arg.rs head/env section, command.rs head/exit section,
+  range.rs, str.rs, value_parser.rs incl. RangedI64/U64ValueParser), util (
+  any_value.rs, escape.rs, flat_map.rs, graph.rs, str_to_bool.rs), and Cargo.toml.
+  
+  Concern #1 (malicious/suspicious): clean.
+  - `build = false` in Cargo.toml (line 17). No build.rs in the tarball.
+  - Not a proc-macro; `[lib]` is a normal rlib (Cargo.toml lines 100-103).
+  - No `include_bytes!`, no string deobfuscation, no `#[no_mangle]` exports.
+  - No network APIs, no `std::process::Command`, no `libc::`, no `asm!`.
+  - Only `std::process::exit` call is `Error::exit` in error/mod.rs:248,
+    the documented "print error then exit" helper. Only env access is
+    `env::args_os` for CLI parsing (command.rs:664/688/728) and `env::var_os`
+    for the documented `Arg::env(name)` feature (arg.rs:2207) plus
+    COLUMNS/LINES for help wrapping (help_template.rs:1123). The `unsafe`
+    occurrences in grep are entirely inside doctest snippets calling
+    `env::set_var` (Rust 2024 edition requires unsafe there).
+  - Dependencies are all reputable (anstream, anstyle, backtrace, clap_lex,
+    strsim, terminal_size, unicase, unicode-width); license MIT OR
+    Apache-2.0; repo github.com/clap-rs/clap.
+  
+  Concern #2 (unsafe + SAFETY): N/A. lib.rs:9 declares
+  `#![forbid(unsafe_code)]`, so any unsafe in the crate proper would be a
+  compile error. Confirmed by grep -- all `unsafe` hits are in doctests.
+  
+  Concern #3 (miri): N/A (no unsafe in the crate).
+  
+  Concern #4 (correctness): no reproducible bugs found on this pass. Notable
+  spots that read carefully:
+  - parser/parser.rs:1291 counts occurrences with `saturating_add(1)` --
+    correctly avoids overflow on ArgAction::Count.
+  - builder/range.rs From<RangeTo<usize>>/From<Range<usize>> use
+    `saturating_sub(1)` to convert exclusive to inclusive end; the
+    `..0` edge case produces `0..=0` (i.e. "no values"), surprising but
+    not exploitable.
+  - builder/value_parser.rs RangedI64/U64ValueParser parse i64/u64 first,
+    then bounds-check, then `try_into` the target -- correct order.
+  - output/textwrap/core.rs `display_width` enters control-sequence mode on
+    any ASCII control char and exits only on `m`; a bare control char in
+    user-supplied help text (without a following `m`) would let subsequent
+    text be counted as width 0. Cosmetic, not a memory or panic issue.
+  - Several `expect(INTERNAL_ERROR_MSG)` calls -- they are internal
+    invariants (e.g. find by id that was just inserted), not user-input
+    panics. The validator paths all return ClapError rather than panicking.
+  - CLI/derive code uses `unwrap()` after `parse` only in test fixtures.
+  
+  Did NOT run any code (no cargo build/test/expand/check) per project rules.
+----- SIGN CREV PROOF -----
+XbX0TvDp8Sksxc8FfvsSaN2MlboQM5V6zj8dWjpLRTZBiJR1gZtDptiy1FY1LyVnEO8X5Ez1833hYS1MMJUSCg
+----- END CREV PROOF -----
+
