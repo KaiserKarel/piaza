@@ -4359,3 +4359,55 @@ comment: |-
 31KEsFkUQDbURPeYMjwnT4zwUhgmhPG11Lcj5Lmn3VWZ-MQToWOxy7A5R9yeHdDPKSvUhNRAWzQSDEhQX8xRAw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:19:41.107730+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: digest
+  version: 0.10.7
+  revision: 344389411fd9718a0742435152e933a9e71461ee
+  digest: E2i3mVfVz3E_PJLhrCzdp8oS1312huF_ohqiEO1n8e0
+review:
+  thoroughness: high
+  understanding: high
+  rating: strong
+comment: |-
+  RustCrypto's foundational trait crate for cryptographic hash functions and MACs.
+  Read every `.rs` file under `src/` (lib.rs, digest.rs, mac.rs, dev.rs,
+  core_api.rs, core_api/{ct_variable,rt_variable,wrapper,xof_reader}.rs,
+  dev/{fixed,mac,rng,variable,xof}.rs).
+  
+  Concern 1 (malicious/suspicious): clean. No `build.rs`, no proc-macros
+  (Cargo.toml declares a normal library). `include_bytes!` appears only inside
+  the gated `dev` module's `new_test!` / `new_mac_test!` macros, where the
+  downstream crate supplies the test-vector blob path -- not the crate itself
+  shipping opaque blobs. No network, no FS, no process spawning, no FFI.
+  Dependencies are all standard RustCrypto crates (block-buffer, crypto-common,
+  const-oid, subtle) plus blobby for tests. License MIT OR Apache-2.0,
+  repository RustCrypto/traits, authored by the RustCrypto org.
+  
+  Concerns 2 & 3 (unsafe / miri): `#![forbid(unsafe_code)]` at lib.rs:27.
+  No `unsafe` anywhere in the crate, so SAFETY-comment and miri concerns do
+  not apply.
+  
+  Concern 4 (correctness): trait surface is straightforward.
+  `Mac::verify_truncated_{left,right}` in mac.rs:198-225 correctly bound-check
+  `n == 0 || n > OutputSize::USIZE` before slicing. `RtVariableCoreWrapper::
+  finalize_dirty` (core_api/rt_variable.rs:31-49) verifies `out.len() ==
+  output_size` before writing; `output_size` itself is already validated by
+  `T::new()` at construction. `DynDigest`'s default `finalize_reset`/`finalize`
+  call `.unwrap()` on a buffer freshly sized to `self.output_size()`, which is
+  safe by construction. No suspicious integer arithmetic, no panicking indexing
+  on untrusted input.
+  
+  Widely used as the de-facto hash-function trait crate in the Rust ecosystem.
+----- SIGN CREV PROOF -----
+t4PcJpgJtKvmgSoiL3k07fkRnrFzOmg6ZDB--F7SzejSDoSgnhcFNuYQLKiRDdykU4hixmiebNqfc_NfxUXIDQ
+----- END CREV PROOF -----
+
