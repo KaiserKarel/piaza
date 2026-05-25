@@ -2685,3 +2685,101 @@ comment: |-
 drdImNAJCfhNX1GDvZCjcLY81QW8hr_EQX-Hi3D7keidt1fAKY0xa-RwDiuxnqzhEGRwMQCaRchaX84cOPKmBw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T22:19:59.482312+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: ciborium-ll
+  version: 0.2.2
+  revision: fdf3ec5c53256000f8e12f06c361ca18026a8d99
+  digest: i5sWXmAHgwLI3UongdEp9oTMatH2iBBDdP2gYwF-B-8
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Low-level CBOR header codec, sibling of the already-reviewed
+  ciborium-io / ciborium 0.2.2. Read every .rs file under src/
+  (lib.rs, hdr.rs, dec.rs, enc.rs, seg.rs — ~1100 lines including
+  tests), Cargo.toml(.orig), README.
+  
+  Concern #1 (malicious/suspicious): clean. No build.rs, no
+  proc-macro, no `include_bytes!`/`include_str!`, no
+  `std::process`/`Command`, no `libc`/FFI, no network or filesystem
+  APIs, no `env!`/`option_env!`, no `#[no_mangle]`, no inline asm,
+  no `transmute`. Crate is `#![cfg_attr(not(feature = "std"),
+  no_std)]` with `#![deny(missing_docs)]`, `#![deny(clippy::all)]`,
+  `#![deny(clippy::cargo)]`. Dependencies are minimal and
+  appropriate: ciborium-io 0.2.2 (sibling), half 2.2 (well-known
+  IEEE 754 f16), and hex 0.4 (dev-only). License Apache-2.0,
+  repository link matches enarx/ciborium.
+  
+  Concern #2 (`unsafe` without SAFETY): N/A — grep for `unsafe`
+  across the crate returns zero matches. No `unsafe` blocks, no
+  `unsafe fn`, no `unsafe impl`.
+  
+  Concern #3 (`unsafe` without miri): N/A — no unsafe code.
+  
+  Concern #4 (correctness): no reproducible bugs found. Walked the
+  state machine in dec.rs / enc.rs / hdr.rs / seg.rs.
+  - `pull_title` (dec.rs:62) reads major from `prefix[0] >> 5`
+    (3 bits → exhaustive 0..=7 plus `unreachable!()`), and minor
+    from `prefix[0] & 0x1f`: 0..=23 → `This`, 24..=27 → `Next1..
+    Next8`, 31 → `More`, reserved 28/29/30 → `Error::Syntax`.
+    Matches RFC 7049 §2.1.
+  - `Title -> Header` (hdr.rs:78) routes lengths through
+    `usize::try_from`, so a u64 length that doesn't fit usize on
+    32-bit targets becomes `InvalidError` rather than truncating.
+    Indefinite-length (`Minor::More`) is rejected for Positive /
+    Negative / Tag (`int()` returns None → InvalidError), accepted
+    for Bytes/Text/Array/Map (length = None), and produces
+    `Header::Break` only under `Major::Other`. Spec-correct.
+  - The `push_title` / `pull_title` buffer (dec.rs:98) shaves
+    `title.minor.as_ref().len() + 1` from `offset` on push and
+    adds the same amount back on pull, so the offset is restored
+    correctly even when the synthesized canonical minor encoding
+    differs from the non-canonical wire bytes that were originally
+    read. Offset becomes transiently inconsistent between push and
+    pull (off by `actual_minor_len - canonical_minor_len`), but
+    `Segments::new` always immediately pulls, and the final
+    post-pull offset matches the real wire position. No bug.
+  - `Segment::pull` (seg.rs:131) handles the saved-bytes prefix
+    via `let next = &mut full[min(size, prev)..];` and updates
+    `unread` by the size of `next`, never by the full slice. If
+    the caller's buffer is `<= saved_len` so `size <= prev`, the
+    Text parser early-returns "" and no read occurs — a documented
+    precondition, gracefully handled rather than misbehaving.
+  - `Encoder::text` (enc.rs:99) enforces a minimum chunk of 4
+    bytes — the longest UTF-8 code point — guaranteeing the inner
+    `while len > 0 && from_utf8(...).is_err()` loop always finds
+    a valid prefix of length ≥ 1 and forward progress is made
+    (no infinite loop on valid input).
+  - `Encoder::bytes` (enc.rs:66) enforces a minimum chunk of 1,
+    so `chunks(max)` is well-defined.
+  - Float encoding (hdr.rs:146) tries f16 → f32 → f64 by
+    bit-exact round-trip (`to_bits()` equality). Non-canonical
+    NaNs that don't round-trip cleanly fall through to f64, which
+    is conservative-but-correct.
+  
+  Lenient-parsing notes (not bugs; RFC 7049 §3.2 leaves strictness
+  to the consumer): the decoder accepts non-canonical length
+  encodings (e.g., positive 10 encoded in 8 bytes) and accepts
+  simple values 0..=31 in the 2-byte `0xf8 xx` form even though
+  values <32 must use the 1-byte form for canonical CBOR. The
+  encoder always emits canonical lengths and uses the 1-byte
+  form for simple ≤23, but does not reject reserved simple
+  values 24..=31. The crate is documented as "low-level";
+  strictness is delegated to higher layers (ciborium).
+  
+  Did NOT run any code (no cargo build/test/expand) per project
+  rules.
+----- SIGN CREV PROOF -----
+8QCXoYXZFpnVlhIfte4ZQoC3-wN-0ZWFCahcJcOKDEBWPjO3tuCPhUJ_DudsLevL4-oR0Bl-zSwdmlE1g6FUBg
+----- END CREV PROOF -----
+
