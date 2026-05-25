@@ -1,0 +1,41 @@
+# Review log: cfg_aliases 0.2.1
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate cfg_aliases 0.2.1`
+- **Started (UTC):** 2026-05-25T09:12:09Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+The commit step is blocked by pre-existing uncommitted state from prior sessions. Stopping here per the workflow's "stop and report — don't paper over errors" rule.
+
+**What I did:**
+- Verified `cfg_aliases 0.2.1` not yet reviewed.
+- Fetched and inspected the source (single ~380-line `src/lib.rs`, no `unsafe`, no `build.rs`, no proc-macro, no dependencies, no I/O outside `std::env::var`).
+- Wrote and signed the proof — it's been appended to `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA/reviews/2026-05-package-NcWxYw.proof.crev`.
+- Wrote the review log to `review-logs/cfg_aliases/0.2.1/opus-4-7-default.log`.
+- Rating: `positive` (thoroughness `medium`, understanding `high`).
+
+**Why the commit failed:**
+
+The proof file already contained THREE other uncommitted proofs from prior sessions before this review started:
+
+```
+$ git diff --cached -- .../2026-05-package-NcWxYw.proof.crev | grep "+  name:"
++  name: cast              # cast 0.3.0    (orphan from prior session)
++  name: cc                # cc 1.2.41     (orphan from prior session)
++  name: cc                # cc 1.2.62     (orphan from prior session)
++  name: cfg_aliases       # 0.2.1         (mine)
+```
+
+Plus orphan logs in `review-logs/cc/1.2.41/` and `review-logs/cc/1.2.62/` (and untracked `review-logs/cast/`).
+
+Cargo-crev appends every new proof to the same date-bucketed file, so I can't isolate cfg_aliases from those orphans without rewriting the proof file — which would break signatures. `commit-proof.sh` enforces 1 proof + 1 log per commit, so it (correctly) refused.
+
+**Your call:**
+1. Commit the four reviews (cast, cc 1.2.41, cc 1.2.62, cfg_aliases) as one combined commit — violates the project's 1-commit-per-review invariant.
+2. Investigate/clean up the prior orphan state first (decide whether those three proofs are valid, locate their logs, then split the proof file by hand if you want individual commits), then commit cfg_aliases.
+3. Something else.
+
+I won't take destructive action on those prior proofs without instruction.

@@ -1,0 +1,23 @@
+# Review log: cc 1.2.62
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate cc 1.2.62`
+- **Started (UTC):** 2026-05-25T09:03:59Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+Understood — stopping without further changes.
+
+**Status of `cc 1.2.62` review:**
+
+- Source inspected: all `.rs` files under `src/` (8.4k LOC), `Cargo.toml`, README, CHANGELOG, embedded `detect_compiler_family.c`.
+- Findings: same neutral-cap shape as the cc 1.2.41 review from yesterday — identical unsafe surface in `utilities.rs` (OnceLock), `parallel/{async_executor,stderr,job_token}.rs`; one canonical `// SAFETY:` comment (in OnceLock::drop), no others. No miri in tarball CI. No new `build.rs`, no new proc-macro, no new deps. Spot-checked new features (Build::env, sh4 arch, relibc env, ar `D` modifier probe, `-fwasm-exceptions` for wasm32-linux, sanitizer-target abi scrub) — no bugs found.
+- Proof signed and synced into the working tree. The commit is **blocked** by pre-existing leftover state from a prior, never-committed `cc 1.2.41` review run (a staged-but-uncommitted log file in `review-logs/cc/1.2.41/`, plus unstaged tail on that same file).
+
+Working-tree changes from this run:
+- `review-logs/cc/1.2.62/opus-4-7-default.log` (new, staged)
+- `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA/reviews/2026-05-package-NcWxYw.proof.crev` (new cc 1.2.62 proof appended, staged)
+
+Nothing rolled back. Your call on how to resolve the 1.2.41 residue before commit.

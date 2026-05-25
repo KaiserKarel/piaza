@@ -1,0 +1,24 @@
+# Review log: cc 1.2.41
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate cc 1.2.41`
+- **Started (UTC):** 2026-05-25T08:52:56Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+The 1Password ssh-signing helper is failing intermittently (`failed to fill whole buffer`) when git tries to sign the commit. The proof itself is written and the diff is correctly staged — I just can't get past the signing step. Could you check whether 1Password is unlocked / accessible (the desktop app may need to be brought to the foreground to approve the signature)? Once it's ready, re-run:
+
+```
+./scripts/commit-proof.sh "cc" "1.2.41"
+```
+
+Summary of the review work itself:
+- Source for cc 1.2.41 fetched and inspected (~8.2k LOC across `src/`).
+- No `build.rs`, no proc-macros, no network code, no obfuscation. The lone `include_bytes!` embeds the tiny `src/detect_compiler_family.c` (#pragma message probes).
+- `unsafe` usage is the custom `OnceLock` in `src/utilities.rs`, `Pin::new_unchecked` / `Waker::from_raw` in `src/parallel/async_executor.rs`, libc/Windows FFI in `src/parallel/stderr.rs`, and `unsafe fn JobServer::from_env` in `src/parallel/job_token.rs`. Several blocks lack proper `// SAFETY:` comments → rating capped at `neutral` per concern #2.
+- No miri in the shipped tarball (tests/ and .github/ are excluded from publish).
+- No correctness bugs found.
+
+Proof written to `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA/reviews/2026-05-package-NcWxYw.proof.crev`, log at `review-logs/cc/1.2.41/opus-4-7-default.log`. Rating: `neutral`, thoroughness: `medium`, understanding: `medium`. Only the commit is blocked.

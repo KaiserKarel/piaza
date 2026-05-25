@@ -1,0 +1,17 @@
+# Review log: cast 0.3.0
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate cast 0.3.0`
+- **Started (UTC):** 2026-05-25T08:44:07Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+The tool prompt was dismissed. The review work is complete — proof signed and staged — only the 1Password-signed commit is blocked. Stopping here per the workflow rule ("If any step fails, stop and report").
+
+**Status:**
+- `cast 0.3.0` reviewed: rating **positive**, thoroughness **medium**, understanding **high**.
+- Findings: no `build.rs`, no proc-macros, no `unsafe` (`#![deny(unsafe_code)]`), no I/O, only `quickcheck` dev-dep. Float-to-int logic correctly handles ULP rounding (e.g. `u32::MAX as f32` rounds up to `2^32`); `f32→u128` correctly skips overflow check because `f32::MAX < 2^128`.
+- Proof signed and staged at `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA/reviews/2026-05-package-NcWxYw.proof.crev`; log at `review-logs/cast/0.3.0/opus-4-7-default.log`.
+- **Blocked:** `./scripts/commit-proof.sh cast 0.3.0` fails with `1Password: failed to fill whole buffer`. Unlock/approve 1Password and re-run that script to complete the one-commit-per-review.

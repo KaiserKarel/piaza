@@ -1,0 +1,25 @@
+# Review log: cfg-if 1.0.4
+
+- **Harness:** `opus-4-7-default`
+- **Model:** `claude-opus-4-7`
+- **Slash command:** `/review-crate cfg-if 1.0.4`
+- **Started (UTC):** 2026-05-25T09:16:22Z
+- **Crev ID:** `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA`
+
+---
+
+Stopping here — the cfg-if proof and log are written and staged, but `commit-proof.sh` refuses the commit because there are pre-existing staged files in the index from before this session (visible in the starting gitStatus):
+
+- `review-logs/cc/1.2.41/opus-4-7-default.log` (AM)
+- `review-logs/cc/1.2.62/opus-4-7-default.log` (AM)
+- `review-logs/cfg_aliases/0.2.1/opus-4-7-default.log` (AM)
+- `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA/reviews/2026-05-package-NcWxYw.proof.crev` (M)
+
+These look like in-progress work on other reviews (cc 1.2.41, cc 1.2.62, cfg_aliases 0.2.1). The script's one-commit-per-review invariant rejects bundling them, and I don't want to `git restore --staged` or otherwise discard your work to force the commit through.
+
+What was completed:
+- Reviewed `cfg-if` 1.0.4 (single 213-line `macro_rules!` crate, no unsafe, no build.rs, no proc-macro, rust-lang org, Alex Crichton). Rating: `strong`, thoroughness/understanding: `high`.
+- Signed proof written: `s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA/reviews/2026-05-package-NcWxYw.proof.crev`
+- Log: `review-logs/cfg-if/1.0.4/opus-4-7-default.log`
+
+To finish: either commit/unstage the pre-existing index entries first, then re-run `./scripts/commit-proof.sh cfg-if 1.0.4`, or tell me how you'd like to handle them.
