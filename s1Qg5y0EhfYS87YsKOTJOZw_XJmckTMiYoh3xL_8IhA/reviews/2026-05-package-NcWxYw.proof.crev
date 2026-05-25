@@ -3856,3 +3856,70 @@ comment: |-
 GuW8BX1MThhjk_0G05crIAuoeLXENWKDoibszkwwPatdd4d4wzR6lD7yqj5ChSJiSjE3O75XUuXB8ICPIs6YBQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:46:44.291012+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: crypto-common
+  version: 0.1.7
+  revision: 66a997ccf5776ce873da5a48e2885a9908e940f6
+  digest: oQZ90pMEmxJplQ5kCAAQrfLcGjUr9PPKKy4LkzQObEw
+review:
+  thoroughness: high
+  understanding: high
+  rating: strong
+comment: |-
+  Tiny (~312 LoC, single src/lib.rs) RustCrypto trait crate. Provides the
+  common traits (`BlockSizeUser`, `KeySizeUser`, `IvSizeUser`, `OutputSizeUser`,
+  `KeyInit`, `KeyIvInit`, `InnerInit`, `InnerIvInit`, `Reset`,
+  `AlgorithmName`, `ParBlocksSizeUser`) and associated type aliases that the
+  entire RustCrypto stack (block ciphers, AEADs, hashes) builds on. The 0.1.7
+  bump is a single change vs 0.1.6: pin `generic-array` to `=0.14.7`
+  (CHANGELOG.md, PR #2088) to avoid a SemVer-incompatible jump in transitive
+  consumers.
+  
+  Concern #1 (malicious/suspicious): no build.rs (`build = false` at
+  Cargo.toml:17), no proc-macro, no `include_bytes!`, no `std::process`,
+  no network or filesystem I/O, no obfuscation. Three direct dependencies:
+  `generic-array =0.14.7` (RustCrypto), `typenum 1.14` (RustCrypto-adjacent,
+  paholg), and optional `rand_core 0.6` (RustCrypto). License is
+  `MIT OR Apache-2.0`; repository link (github.com/RustCrypto/traits) and
+  authors ("RustCrypto Developers") match the published crate metadata.
+  
+  Concern #2 (unsafe + SAFETY): N/A. `#![forbid(unsafe_code)]` at
+  src/lib.rs:9; `rg unsafe` across the source returns only that forbid
+  attribute.
+  
+  Concern #3 (miri): N/A — no unsafe code anywhere in the crate.
+  
+  Concern #4 (correctness): the crate is almost entirely trait
+  declarations with default-method bodies. The three fallible default
+  methods all length-check before calling the infallible variant:
+  - `KeyInit::new_from_slice` (lib.rs:129-135) compares `key.len()` to
+    `Self::KeySize::to_usize()`, returns `Err(InvalidLength)` on mismatch.
+  - `KeyIvInit::new_from_slices` (lib.rs:155-166) checks both `key.len()`
+    and `iv.len()` against the respective associated-type sizes.
+  - `InnerIvInit::inner_iv_slice_init` (lib.rs:214-220) checks
+    `iv.len()` against `Self::IvSize::to_usize()`.
+  The `*_from_slice` functions on `GenericArray` panic if the slice is
+  the wrong length, but each call site here is gated by the explicit
+  length check immediately above, so the panic path is unreachable from
+  the public API. The `generate_key` / `generate_iv` helpers
+  (lib.rs:141-145, 172-186, 226-230) call `rng.fill_bytes` on a
+  zero-initialized `GenericArray` — correct usage of the `RngCore` API.
+  Blanket impls of `KeySizeUser`/`KeyInit`/`KeyIvInit` for `InnerUser`
+  / `InnerInit` / `InnerIvInit` types (lib.rs:233-273) just forward to
+  the inner type's impl; no panics, no surprises. No `unwrap`/`expect`,
+  no arithmetic, no indexing. No reproducible bugs found.
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules.
+----- SIGN CREV PROOF -----
+t_sQC5VKTTpdQc0CEC9sjTC_L00k0gxoNUeJxRxVELez9JrInmYV1lA3JR2EZ6HWfRtTzadwwsvb2h6KqPZzCA
+----- END CREV PROOF -----
+
