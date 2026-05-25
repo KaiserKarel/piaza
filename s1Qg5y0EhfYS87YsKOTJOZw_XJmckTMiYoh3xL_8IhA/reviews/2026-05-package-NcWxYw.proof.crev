@@ -3458,3 +3458,59 @@ comment: |-
 vZim1zi5e1d-qLb-KXuMvWnL_oUMgMgPLZ7NNdZGoXHfdbtS1dj4rVU6JqJ1awUvkMGS2x1RQdbapFQAe6W7Bg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:19:02.315575+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: criterion-plot
+  version: 0.5.0
+  revision: 5e27b692a43a05736d073fd449e16dcf1c24628c
+  digest: fcOOxIvSBcC3--hITVrDMMwr7I-y_ZqjIvmfQwnViis
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Read every `.rs` file under src/ (lib.rs, axis.rs, candlestick.rs, curve.rs,
+  data.rs, display.rs, errorbar.rs, filledcurve.rs, grid.rs, key.rs, map.rs,
+  prelude.rs, proxy.rs, traits.rs). Read Cargo.toml and README.md. No
+  build.rs and no proc-macro (Cargo.toml has no `[lib] proc-macro = true`
+  and no `build = ...`).
+  
+  Concern #1 (malicious/suspicious): nothing flagged. The only process
+  invocation is `Command::new("gnuplot")` (lib.rs:546 and lib.rs:991),
+  which is the crate's stated purpose. These invoke the bare command name
+  `gnuplot` and rely on PATH lookup, conventional for tools that wrap a
+  system binary. No network access, no env-var reads, no filesystem
+  writes outside the user-supplied `Output` path. Deps are `cast 0.3`
+  and `itertools 0.10`, both well-known.
+  
+  Concern #2/#3 (unsafe / miri): no `unsafe` in the source (grep across
+  src/ returned zero hits). No caps apply.
+  
+  Concern #4 (correctness): minor issues, no exploitable bugs.
+  - `Set<Opacity>` (filledcurve.rs:100) doc-comments a panic on values
+    outside [0,1] but the impl does not assert; the value is just
+    formatted into the gnuplot script. Cosmetic doc/impl mismatch.
+  - `Set<FontSize>` (lib.rs:643) asserts `size >= 0.` while doc says
+    "non-positive" panics — 0.0 is allowed despite the wording.
+  - Output path is escaped for single quotes (lib.rs:449), but labels,
+    titles, axis labels, and font names are interpolated directly into
+    single-quoted gnuplot strings without escaping. An apostrophe in a
+    user-supplied label would break the gnuplot script. Not a security
+    issue — output is piped to a local gnuplot process under the user's
+    control, and inputs come from the consumer's own code.
+  
+  README notes the crate is "looking for a maintainer"; treat as
+  effectively unmaintained. It is an implementation detail of
+  criterion.rs and pinned by that crate's releases.
+----- SIGN CREV PROOF -----
+9lYIyRrTlrMsbbE5KitvUSdtoYQFdnkrwTTDWsiC2T120I4Y6AIC9_17RCkd0oKtEVCgQXNu55xcMkkaKW8GDg
+----- END CREV PROOF -----
+
