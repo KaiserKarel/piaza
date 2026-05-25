@@ -2057,3 +2057,62 @@ comment: |-
 ZyEWPlWSBEs39O6syrveEf4B_WLEuJbP2igQpOgfCtT4ELz3kHU2Ou40DbFkwLbnKBOWt4WUNhivToefOMVPBA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T17:32:31.347082+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: bytemuck
+  version: 1.25.0
+  revision: 164cedda0eae131bc6cb67902599f4ec253642ca
+  digest: wsOInIxZUybzrV88s6UGS7_Jf1W0nCdbhC7ASmJ6Srw
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Read every `.rs` under `src/`, the `Cargo.toml(.orig)`, the README, the
+  changelog, and the CI config.
+  
+  Concern #1 (malicious): clean. No `build.rs`, no proc-macros in this
+  crate (proc-macros live in the separate `bytemuck_derive` dep, gated
+  by the `derive` feature). No network, no process spawning, no
+  filesystem I/O, no `include_bytes!`, no obfuscation. Triple-licensed
+  (Zlib/Apache-2.0/MIT). Well-known author Lokathor; this is the de
+  facto safe-transmute crate in the ecosystem. The 1.25 delta is small:
+  drop `extern "stdcall"` fn-ptr impls on non-x86-32 Windows (PR 333)
+  and unblock `nightly_portable_simd` after libcore's `LaneCount`
+  removal (PR 344) — both straightforward fixes. An opt-in
+  `unsound_ptr_pod_impl` feature exists, is documented as unsound, and
+  is excluded from the docs.rs/playground feature sets.
+  
+  Concern #2 (`unsafe` without SAFETY): inconsistent. `src/transparent.rs`,
+  `BoxBytes`, and `TransparentWrapperAlloc` carry good `// SAFETY:` lines.
+  But many `unsafe { ... }` blocks in `src/internal.rs`, `src/must.rs`,
+  `src/checked.rs`, `src/allocation.rs` (e.g. `try_zeroed_box`,
+  `try_cast_box`, `try_cast_vec`, `try_cast_slice_box`) lack explicit
+  `// SAFETY:` comments. In context the invariants are usually obvious
+  (size/align just checked, or the enclosing `unsafe fn` carries the
+  contract), but per the rubric this caps rating at `neutral`.
+  
+  Concern #3 (miri): CI (`.github/workflows/rust.yml`) runs
+  `cargo miri test --no-default-features` and `cargo miri test
+  --all-features` on the crate, plus `-Zsanitizer=address` and
+  `-Zsanitizer=memory` builds. Solid validation of the unsafe surface.
+  No additional cap.
+  
+  Concern #4 (correctness): no bugs found. The size/align gating in
+  `internal::try_cast*` and `allocation::try_cast_{box,vec,slice_*}`
+  is consistent (handles ZSTs explicitly, checks `input_bytes %
+  size_of::<B>()`, treats `Layout` size+align as the dealloc contract,
+  uses `ManuallyDrop` to defuse the donor `Vec`). `BoxBytes` preserves
+  its alignment-layout invariant on drop.
+----- SIGN CREV PROOF -----
+IxzFnwMshbw9zRzPhxVlmgnXH1myLCHs7rUSYWOQlGb8O1VLUWKAQ4Rm3BKxxkGYUTKo04P_izmnW8QpOWl8DA
+----- END CREV PROOF -----
+
