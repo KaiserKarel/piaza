@@ -3719,3 +3719,91 @@ comment: |-
 Zpz_WB5F9-KJOoyGyDIktaDv68aLDvqogdk29i9b-pPkACy0rKrm3RnHM3ZYJN2-TmqDvutXmLO5XsXRuQwoCQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:36:05.154515+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: crossbeam-utils
+  version: 0.8.21
+  revision: ccd83ac4108a2a1b41e9c6e79c87267167d18dfa
+  digest: zZTT155anh1H8ID7XholZaTYPZBR91OwlDX5AcZxO74
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Foundational concurrency utility crate from the crossbeam-rs project
+  (used transitively by ~all Rust concurrency code). Read every .rs file
+  in src/ (lib.rs, backoff.rs, cache_padded.rs, thread.rs, atomic/{mod,
+  atomic_cell,consume,seq_lock,seq_lock_wide}.rs, sync/{mod,once_lock,
+  parker,sharded_lock,wait_group}.rs), plus Cargo.toml, build.rs,
+  build-common.rs, no_atomic.rs, README, CHANGELOG, and the CI workflow.
+  
+  Concern #1 (malicious/suspicious): build.rs only consumes TARGET and
+  CARGO_CFG_SANITIZE env vars and emits cargo:rustc-cfg / rustc-check-cfg
+  / warning directives plus rerun-if-changed for no_atomic.rs. No network,
+  no FS access outside cargo's output channel, no shelling out. The
+  included no_atomic.rs is a 4-entry constant array of target triples.
+  No proc-macro, no include_bytes!, no Command, no obfuscation. Runtime
+  deps: zero in default config; optional loom 0.7.1 gated on
+  cfg(crossbeam_loom) for testing only. Dev-dep rand 0.8. License
+  MIT/Apache-2.0, repository on github.com/crossbeam-rs.
+  
+  Concern #2 (unsafe + SAFETY): heavy unsafe usage. Counted ~70 unsafe
+  tokens across the crate. Coverage is partial. SAFETY-annotated:
+  atomic_cell.rs:86-92 (into_inner), 310-316 (Drop::drop), once_lock.rs
+  :50-51, 55-56, 84-85; rustdoc `# Safety` sections on once_lock.rs
+  get_unchecked, parker.rs Parker/Unparker::from_raw. Without SAFETY
+  prefix: every atomic_cell.rs `unsafe { atomic_load/store/swap/cae(...) }`
+  call site (lines 143, 163, 215, 267), all impl_arithmetic!-generated
+  `unsafe { &mut *(self.as_ptr()) }` and `unsafe { &*(self.as_ptr() as
+  *const atomic::$atomic) }` blocks (40+ occurrences), the four
+  `unsafe fn atomic_*` private helpers (lines 1048, 1090, 1109, 1133)
+  which have no `# Safety` docs, sharded_lock.rs lifetime-transmute and
+  UnsafeCell-cast blocks (lines 193, 349, 359, 424, 498, 529, 556, 562),
+  thread.rs:466 `mem::transmute` erasing `'env` bound (has narrative
+  rationale but not the canonical prefix). The `unsafe impl Send/Sync`
+  markers (parker.rs:58/221/222, sharded_lock.rs:86/87/492/523,
+  cache_padded.rs:152/153, thread.rs:224/489/490, atomic_cell.rs:47/48,
+  once_lock.rs:16/17) carry no rationale comments. Per rubric §2 this
+  caps rating at `neutral`. The underlying invariants ARE correct — this
+  code has years of production exposure and miri runs in CI — but the
+  annotation discipline is below the rubric bar.
+  
+  Concern #3 (miri): upstream CI (.github/workflows/ci.yml on the
+  crossbeam-utils-0.8.21 tag) runs ci/miri.sh with `cargo miri test -p
+  crossbeam-utils` under MIRIFLAGS=-Zmiri-symbolic-alignment-check
+  -Zmiri-disable-isolation, plus a cargo-careful job and a randomize-
+  layout RUSTFLAGS env. Pure-Rust unsafe is exercised. No additional
+  cap.
+  
+  Concern #4 (correctness): no reproducible bugs found. Spot-checks:
+  AtomicCell's lock-shard array uses LEN=67 (prime, deliberate per the
+  in-source comment to avoid alignment-induced bias); seq_lock_wide.rs
+  acknowledges the rare double-wrap window it cannot detect; Parker's
+  state machine is the textbook std::thread::park pattern (EMPTY/PARKED/
+  NOTIFIED with a coordinated swap and a panic on inconsistent state at
+  parker.rs:351/372); ShardedLock holds 8 RwLock shards selected by
+  current_index() & 7 (NUM_SHARDS is power-of-two as asserted); write
+  path locks all shards in order, drops them in reverse; WaitGroup uses
+  Mutex<usize> + Condvar with count starting at 1, decrement in Drop,
+  notify_all on reaching zero — race-free. The arithmetic in
+  impl_arithmetic! fallbacks uses wrapping_add/sub deliberately. The
+  scope() implementation in thread.rs promotes any unwinding panic to
+  an abort via AbortOnPanic to prevent dangling references escaping
+  the scope. Note that crossbeam-utils thread::scope is soft-deprecated
+  in favor of std::thread::scope (Rust 1.63+) per its own docstring.
+  
+  Rating capped at `neutral` solely due to the missing `// SAFETY:`
+  annotations per the project rubric; functional code quality is high
+  and consistent with the rest of the crossbeam-rs ecosystem.
+----- SIGN CREV PROOF -----
+iXIm0N5VJ8GNUgwfO2qJREGtUSmjDgU8bQ6-4BLxXWzfs6igVGYtdORoz92-NKNROfnSJWO6zGOYp4DMI7HtAw
+----- END CREV PROOF -----
+
