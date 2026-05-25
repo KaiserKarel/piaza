@@ -4232,3 +4232,55 @@ comment: |-
 2CdcSTvkzNZKgYkATE2DTYNXw75Osc_6tcGHcD84v-8oeDaZKeAXP_d3AV-Tsfl57ts7sPY4sgatZJDSm1ZZAg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:09:10.089493+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: derive_more
+  version: 2.1.1
+  revision: f7bb41ac054c060caaf5ff3212e74e42794cb4b4
+  digest: F1Gd41WhhCftUO7jU_RQ7yYjRQdtj4zFMc5hUdbDrNA
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Façade crate that re-exports the proc-macros from `derive_more-impl =2.1.1`
+  and provides supporting trait/error types used by the generated code.
+  All proc-macro logic lives in `derive_more-impl` and is out of scope here;
+  that crate needs its own review.
+  
+  Concern #1 (malicious/suspicious): nothing flagged.
+  - No `build.rs` (`build = false` in Cargo.toml).
+  - `proc-macro = true` is not set; this is a normal library crate.
+  - No `include_bytes!`, `std::process`, network/socket APIs, or `libc`
+    references anywhere under `src/`.
+  - Single non-dev dependency is `derive_more-impl =2.1.1` (same author,
+    exact-version pin). Optional `rustc_version` is gated behind the
+    `testing-helpers` feature only.
+  - License MIT, repository link present, author matches the long-standing
+    maintainer (Jelte Fennema).
+  
+  Concern #2/#3 (unsafe): non-applicable. `src/lib.rs:49` has
+  `#![forbid(non_ascii_idents, unsafe_code)]`. The only matches for
+  `unsafe` under `src/` are this forbid attribute. No SAFETY caps apply.
+  
+  Concern #4 (functional correctness): read every file under `src/`
+  (`lib.rs`, `add.rs`, `as.rs`, `as_dyn_error.rs`, `cmp.rs`, `convert.rs`,
+  `fmt.rs`, `ops.rs`, `str.rs`, `try_unwrap.rs`) plus `examples/`. The
+  helper types are small wrappers over `&'static str` formatted into
+  `Display`/`Error` impls; no arithmetic, indexing, or input parsing in
+  this crate. The `DebugTuple`/`Padded` writer in `fmt.rs` is a faithful
+  reimplementation of `core::fmt::DebugTuple` with an added
+  `finish_non_exhaustive`. `as.rs` is the standard autoref-based
+  specialization trick. Nothing bug-shaped found.
+----- SIGN CREV PROOF -----
+LzSxrmyuWhPFBfO_0SMTsko_H3dPWKmrui10RxRAMPnL0NRnWi_VX4jDvXbn7hiBGzLpjwbD58KIYy6-5hHDCA
+----- END CREV PROOF -----
+
