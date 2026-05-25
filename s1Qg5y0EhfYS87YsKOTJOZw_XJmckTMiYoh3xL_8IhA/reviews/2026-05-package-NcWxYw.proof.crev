@@ -3267,3 +3267,114 @@ comment: |-
 4l7SkAFvYwPwyfyLs5tkCUKD0RVB03iBhcOVOE4KtdAswwpyQN6OL0Ej3DwGCxY_xOEUKc5NHiDeiDLMmTE5BA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:10:23.206047+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cpufeatures
+  version: 0.2.17
+  revision: 9d92d5e95ab4c07c5d8bfd024bf2a17e96d20feb
+  digest: hXdl-NRjvsDNl6wsrvY6T_Jnf37Fxkspa_1McszrIks
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: unsafe-missing-safety-comments
+  severity: low
+  comment: |
+    All nine `unsafe` occurrences lack a `// SAFETY:` justification:
+    src/loongarch64.rs:35 (`libc::getauxval`), src/aarch64.rs:37
+    (`libc::getauxval`), src/aarch64.rs:114 and :122 (sysctlbyname
+    wrappers inside `check!` arms), src/aarch64.rs:135 (`pub unsafe
+    fn sysctlbyname`), src/x86.rs:47 / :52 (`unsafe fn cpuid` /
+    `cpuid_count`), src/x86.rs:56 (their call site), and src/x86.rs:78
+    (`arch::_xgetbv`). Invariants are obvious to a reader (CPUID is
+    universally safe to issue on x86; XGETBV is gated by an OSXSAVE
+    check; getauxval/sysctlbyname are FFI with documented safety) but
+    the convention is not followed. Caps rating at neutral per rubric.
+comment: |-
+  Runtime CPU feature detection for aarch64/loongarch64/x86 from the
+  RustCrypto org, depended on transitively by sha2, aes-gcm, chacha20,
+  and most RustCrypto AEAD/hash crates. Read every .rs file under src/
+  (lib.rs, x86.rs, aarch64.rs, loongarch64.rs, miri.rs), all three
+  integration tests, Cargo.toml(.orig), README, CHANGELOG, and upstream
+  .github/workflows/cpufeatures.yml at the revision pinned in
+  .cargo_vcs_info.json (9d92d5e9).
+  
+  Concern #1 (malicious/suspicious): clean. `build = false` in
+  Cargo.toml (no build.rs), no proc-macro, no `include_bytes!`, no
+  `std::process::Command`, no network, no obfuscation. The only
+  dependency is `libc 0.2.155` (`default-features = false`) gated to
+  the three target triples that need it (aarch64-linux/android/apple,
+  loongarch64-linux). License MIT OR Apache-2.0; repository link
+  resolves; authors plausible. The 0.2.17 changelog entry is the
+  one-line fix "Don't link `std` when linking `libc`" (PR #1142),
+  consistent with the trivial Cargo.toml change vs 0.2.16.
+  
+  Concern #2 (unsafe + SAFETY): 9 unsafe occurrences across x86.rs,
+  aarch64.rs, and loongarch64.rs; ZERO `// SAFETY:` comments. The
+  underlying invariants are sound: CPUID is unconditionally safe to
+  execute on any x86 CPU rustc targets; the `__xgetbv!` macro gates
+  `_xgetbv` on the OSXSAVE+XSAVE bits (ECX bits 26/27) in CPUID leaf
+  1 before invoking it; `libc::getauxval(AT_HWCAP)` is safe to call
+  from any process on Linux/Android; `libc::sysctlbyname` is called
+  with NUL-terminated literal byte strings (asserted at runtime in
+  aarch64.rs:137-141). But none of this is documented in source.
+  Caps the rating at neutral per rubric §2.
+  
+  Concern #3 (miri): the crate has a dedicated `src/miri.rs` module
+  (gated on `#[cfg(miri)]` in lib.rs:143-144) that short-circuits both
+  the `__unless_target_features!` and `__detect_target_features!`
+  macros to return `false`, so consumers' miri runs do not exercise
+  any of the unsafe code in this crate. Upstream CI workflow
+  (.github/workflows/cpufeatures.yml at revision 9d92d5e9) has no
+  miri job — only `cargo test` matrix across Linux x86/x86_64,
+  macOS, Windows GNU, and cross-compiled aarch64. The unsafe here is
+  entirely FFI (libc getauxval, sysctlbyname) and vendor intrinsics
+  (cpuid, cpuid_count, _xgetbv) which miri cannot execute, so this
+  is "no penalty, but call out" per rubric §3.
+  
+  Concern #4 (correctness): no reproducible bugs found.
+    - x86 `__xgetbv!` checks OSXSAVE/XSAVE (bits 26 & 27 of CPUID.1:ECX,
+      mask `0b11 << 26`) before issuing `_xgetbv` — required to avoid
+      #UD on CPUs/OSes without XSAVE enablement. Masks for ymm
+      (`0b110`) and zmm (`0b1110_0110`) correctly select XCR0 bits
+      1/2 and 1/2/5/6/7 per XSAVE area layout.
+    - The `cpuid` / `cpuid_count` wrappers at x86.rs:46-54 are
+      `#[inline(never)]` workarounds for rust-lang/rust#101346
+      (resolved in 1.64+); load-bearing comment present.
+    - `__detect_target_features!` reads `cr = [cpuid(1), cpuid_count(7,0)]`
+      once and ANDs all requested feature bits; this is the standard
+      pattern and the bit-offsets (e.g. AES at CPUID.1:ECX[25], SHA at
+      CPUID.7:EBX[29], AVX-512F at CPUID.7:EBX[16]) match Intel/AMD
+      manuals.
+    - aarch64 Apple `sysctlbyname` wrapper asserts `rc == 0` and
+      `size == 4`. On Apple ARM64 hardware (M1+, A14+) the queried
+      sysctls (`hw.optional.arm.FEAT_DIT`, `hw.optional.armv8_2_sha512`,
+      `hw.optional.armv8_2_sha3`) exist; on hypothetical older Apple
+      ARM64 systems missing those sysctls, this would panic rather than
+      return false. Not reachable on supported targets in practice; the
+      crate's `aes`/`sha2` Apple paths short-circuit to `true` without
+      calling sysctlbyname.
+    - aarch64 Linux HWCAP mappings correctly OR together the multiple
+      HWCAP bits LLVM's coarse-grained target_feature implies (e.g.
+      AES = HWCAP_AES | HWCAP_PMULL, SHA3 = HWCAP_SHA3 | HWCAP_SHA512)
+      per the comment referencing RustCrypto/utils#395.
+    - The `new!` macro caches detection in an `AtomicU8` with `Relaxed`
+      ordering and `UNINIT = u8::MAX` sentinel; safe under racing
+      initialization because the underlying CPUID/HWCAP result is
+      deterministic for a given CPU+OS, so any winner stores the same
+      value.
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules.
+----- SIGN CREV PROOF -----
+jRm74wO6XJKVV0PzMKpwwvB9ASiEs96RD75HikyZ0tmvZrBO28Y3ywoXjAIjke-WFzbOHn-S9qnMj7qADCZyCA
+----- END CREV PROOF -----
+
