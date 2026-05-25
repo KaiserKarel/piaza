@@ -3378,3 +3378,83 @@ comment: |-
 jRm74wO6XJKVV0PzMKpwwvB9ASiEs96RD75HikyZ0tmvZrBO28Y3ywoXjAIjke-WFzbOHn-S9qnMj7qADCZyCA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:16:21.463280+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: criterion
+  version: 0.5.1
+  revision: dc2b06cd31f7aa34cff6a83a00598e0523186dad
+  digest: 36xqKyn8rrqvwoh6ypu-A2GJh4v2jHsigu1mqGMH2-I
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+issues:
+- id: is-outlier-inverted-affects-pdf-plots
+  severity: low
+  comment: |
+    stats/univariate/outliers/tukey.rs:241 — `Label::is_outlier()` returns
+    true iff the label IS `NotAnOutlier`, opposite of its docstring. The
+    "Clean sample" point series in both PDF backends therefore plots
+    outliers instead of clean points (plot/gnuplot_backend/pdf.rs:97,
+    plot/plotters_backend/pdf.rs:296). Not reproducible via the public
+    API because the `stats` module is private; no repro filed.
+comment: |-
+  Statistics-driven benchmarking library. Read every .rs file under src/
+  (~12k LoC across stats, analysis, html, plot, connection, bencher).
+  
+  Concern #1 (malicious): nothing suspicious. No build.rs, no proc-macros,
+  no include_bytes!, no obfuscated strings. Network use is limited to
+  TcpStream::connect(("localhost", port)) in lib.rs:128 gated on the
+  CARGO_CRITERION_PORT env var — legitimate IPC with the cargo-criterion
+  harness. lib.rs:394 shells out to `cargo metadata` to locate the target
+  dir; bounded to the cargo binary from $CARGO. Filesystem writes go under
+  $CRITERION_HOME / $CARGO_TARGET_DIR / ./target.
+  
+  Concern #2 (unsafe without SAFETY): 8 unsafe sites, none have a proper
+  `// SAFETY:` comment — only freeform NB/FIXME notes:
+    - lib.rs:168 ptr::read_volatile in black_box
+    - stats/univariate/sample.rs:33,138 mem::transmute(slice/Vec)
+    - stats/univariate/percentiles.rs:20 unsafe fn at_unchecked
+    - stats/univariate/percentiles.rs:52 caller of at_unchecked
+    - stats/univariate/resamples.rs:55 mem::transmute(&[A])
+    - stats/mod.rs:84 mem::transmute(slice) in Deref
+    - stats/bivariate/mod.rs:141 get_unchecked pair
+  Sample<A> is #[repr(transparent)] over [A], so &[A]→&Sample<A> is sound;
+  Percentiles<A>(Box<[A]>) and Distribution<A>(Box<[A]>) are tuple structs
+  WITHOUT #[repr(transparent)], so transmuting Box<[A]> to Percentiles<A>
+  (sample.rs:138) is layout-fragile and only works because rustc currently
+  lays out single-field tuple structs identically to the field. Caps rating
+  at `neutral` per the reviewer rubric.
+  
+  Concern #3 (miri): no miri job in .github/workflows or ci/. All the
+  unsafe is miri-testable (pure Rust transmute/get_unchecked/read_volatile).
+  Independent additional cap at `positive`; subsumed by the #2 cap.
+  
+  Concern #4 (correctness): one real bug. `Label::is_outlier` in
+  stats/univariate/outliers/tukey.rs:241 is `matches!(*self, NotAnOutlier)`,
+  but the doc says "Checks if the data point is labeled as an outlier" —
+  the implementation is inverted. It is consumed by both PDF plot
+  backends (plot/gnuplot_backend/pdf.rs:97,109 and
+  plot/plotters_backend/pdf.rs:296) to build the "Clean sample" point
+  series, so that series actually plots all outliers and excludes the
+  clean data. Only the PDF plots are affected; analysis, CLI, and HTML
+  summary output are correct. The bug is not reproducible from outside
+  the crate because the `stats` module is private (`mod stats;` in
+  lib.rs:74), so no unit-test repro is added. Rating remains `neutral`.
+  
+  Other notes: `BatchSize::iters_per_batch` (lib.rs:249) uses ceiling
+  division `(iters + N - 1) / N` which can overflow for u64::MAX, but
+  iter counts in practice are bounded. Lots of unwrap()/expect() but
+  mostly on invariants the surrounding code establishes.
+----- SIGN CREV PROOF -----
+vZim1zi5e1d-qLb-KXuMvWnL_oUMgMgPLZ7NNdZGoXHfdbtS1dj4rVU6JqJ1awUvkMGS2x1RQdbapFQAe6W7Bg
+----- END CREV PROOF -----
+
