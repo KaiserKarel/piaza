@@ -2268,3 +2268,370 @@ comment: |-
 v4MTKAGwTYGh4hVhe280fECg0OCyMkwgaQtzw-wNczmDU0QZ-JK9qZ3PDRRQgZQLTVqws6cj7bzZVlM-GblKDw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T17:47:13.918717+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cast
+  version: 0.3.0
+  revision: 052288097de1846b938e854e27845a93a6f4b59d
+  digest: r0HKhK3NONllj_nUhhexDTCVF7MOQ56Ke_JmVMPi8QU
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Tiny crate (~540 lines lib.rs + ~210 lines test.rs) providing checked
+  numeric cast functions for primitive types. Authored by japaric, MIT/
+  Apache-2.0 dual licensed, repo at github.com/japaric/cast.rs.
+  
+  Concern #1 (malicious/suspicious): clean. No build.rs, no proc-macros,
+  no I/O, no runtime dependencies (only quickcheck as dev-dep). Cargo
+  manifest is vanilla.
+  
+  Concern #2 (unsafe w/o SAFETY): N/A. lib.rs:94 has
+  `#![deny(unsafe_code)]`. Grep across the source confirms zero `unsafe`
+  occurrences (CHANGELOG notes #41 removed the last internal unsafe).
+  
+  Concern #3 (unsafe w/o miri): N/A - no unsafe.
+  
+  Concern #4 (correctness): the float-to-integer logic in `from_float!`
+  (lib.rs:267) is the only non-trivial piece. It correctly handles the
+  "MAX rounds up" case for lossy conversions (e.g. u32::MAX as f32 ->
+  2^32) by subtracting 1 ULP from the computed max before comparing,
+  using `dst_bits < MANTISSA_DIGITS` to detect lossless cases. The
+  f32->u128 path uses `from_float_dst!` which skips the overflow check;
+  this is sound because the largest finite f32 ((2 - 2^-23) * 2^127) is
+  strictly less than 2^128, so every finite f32 fits in u128. Tests in
+  src/test.rs cover NaN, infinity, gh16 (negative-near-zero truncation),
+  gh15 (large-exponent overflow), and gh23 (lossless integer MAX
+  representation). MSRV is documented as 1.31 with `#![deny(warnings)]`,
+  which is brittle but affects only the crate's own build.
+  
+  Lints used: `#![allow(const_err)]` to silence macro-generated
+  comparison warnings - acceptable.
+----- SIGN CREV PROOF -----
+MC6odGlSEEAz9B6GCSFIsw4iYqtWLUixHa0amUiByTp9LW_0YXxXwQKeMyo-jChHAX8PnWzN9TvHgeBV0fNmBg
+----- END CREV PROOF -----
+
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T17:57:00.056303+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cc
+  version: 1.2.41
+  revision: 87e5faef33d451532dd87c144a5d3eecb04192f2
+  digest: 4irCYfIArEnIlyNhU-lPNiQGyJFi3EazvTcP1kRnjkY
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Canonical build helper from the rust-lang org (Alex Crichton). Used by
+  thousands of crates as a build-dependency to invoke C/C++/asm/CUDA
+  compilers. No `build.rs` of its own. Deps: find-msvc-tools, shlex,
+  optional jobserver + libc behind `parallel` feature.
+  
+  Concern #1 (malicious): nothing suspicious. The sole `include_bytes!`
+  embeds `src/detect_compiler_family.c` (15 lines of `#ifdef` + `#pragma
+  message`) used to probe the configured compiler. Process execution is
+  the crate's stated purpose: cc/gcc/clang/cl.exe/ar/xcrun/etc.
+  
+  Concern #2 (unsafe + SAFETY): caps rating at `neutral`. The custom
+  `OnceLock` in `src/utilities.rs` (a stand-in for `std::sync::OnceLock`
+  to keep MSRV at 1.63) has several `unsafe` blocks and `unsafe impl
+  Sync/Send` lines with no `// SAFETY:` justification - only the Drop
+  impl has one (line 125). One block carries an informal
+  "Safe b/c checked is_initialized" (line 96), not the canonical form.
+  `src/parallel/async_executor.rs` has prose around `Pin::new_unchecked`
+  (lines 56-61) explaining the shadowing trick but it isn't labelled
+  SAFETY. `src/parallel/stderr.rs` FFI calls to libc::fcntl, libc::ioctl
+  and PeekNamedPipe carry no SAFETY comments. The invariants in each
+  case look correct to me on inspection; the issue is the missing
+  discipline, not unsoundness.
+  
+  Concern #3 (miri): the crate excludes `tests/` and `.github/` from the
+  published tarball, so no CI config is shipped. The miri-testable
+  unsafe (OnceLock UnsafeCell, Pin::new_unchecked) is not validated in
+  anything in-tree. The libc/Windows FFI portion isn't miri-amenable.
+  
+  Concern #4 (correctness): no bugs found on this pass. `unwrap()` /
+  `expect()` usage is limited (18 across lib.rs) and lands on
+  RwLock::read/write (PoisonError) or on env vars the caller controls.
+  Command construction passes args via `Command::arg(OsStr)` rather
+  than string concatenation - no shell injection surface.
+  
+  Read: all `.rs` files under `src/` (8.2k LOC), `Cargo.toml`, README,
+  the embedded `detect_compiler_family.c`. Did not exhaustively trace
+  every compiler-flag branch in lib.rs (~4400 lines of dispatch).
+----- SIGN CREV PROOF -----
+eR_qA5ZrOk9ANiL--1zCmF79RHQyy6L4J-JOz-i9w2I1lj9XJERrV6h3MUFG28QJY8THmL810UNR2GMxGvq2BQ
+----- END CREV PROOF -----
+
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T18:09:45.111935+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cc
+  version: 1.2.62
+  revision: 37a5f8f4e1a2eaf4cf483fc0fb97d35761b720c5
+  digest: M4ZqKnz00w0BT7gsfSEbLUtFDc70KDOYEt1GlDROtUw
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Reviewed as a delta against my proof for cc 1.2.41. The intervening
+  releases (1.2.42 - 1.2.62) accumulated mostly target-table regen and
+  small features: `Build::env` (1.2.57), ar `D` (deterministic) modifier
+  probe with fallback to `ZERO_AR_DATE=1` (1.2.59/60), batch sizing by
+  argument-length not count (1.2.57), `sh4` arch in parse_arch
+  (1.2.62), `relibc` env recognition for redox/relibc targets (1.2.62),
+  `-fwasm-exceptions` + `-fdeclspec` for `wasm32-linux` (1.2.62),
+  parse-time fix for sanitizer-suffixed targets (1.2.54/59).
+  
+  Concern #1 (malicious): no change. `build = false` in Cargo.toml,
+  no proc-macro, no new deps. The only `include_bytes!` still embeds
+  src/detect_compiler_family.c (15 lines, transparent purpose).
+  `Command::new` usage is the crate's stated purpose (cc, ar, rustc
+  probe). Args are passed as `OsStr` via `.arg()` - no shell concat.
+  
+  Concern #2 (unsafe + SAFETY): caps at `neutral`, same as 1.2.41.
+  Identical unsafe surface across 4 files:
+  - src/utilities.rs (custom OnceLock for MSRV 1.63): `unsafe fn
+    get_unchecked` (l.80), `unsafe { UnsafeCell::get }` (l.91, 93),
+    informal "Safe b/c checked is_initialized" (l.98 - not canonical
+    SAFETY:), `unsafe impl Sync/Send` (l.117-118, no comment),
+    Drop's `assume_init_drop` (l.129, this one IS canonical SAFETY).
+  - src/parallel/async_executor.rs (l.62, 63, 67): `Pin::new_unchecked`
+    on shadowed locals plus `Waker::from_raw` on the noop vtable.
+    Multi-line rationale above but not labelled SAFETY.
+  - src/parallel/stderr.rs (l.12, 29, 60, 83): raw libc::fcntl /
+    libc::ioctl / windows_sys::PeekNamedPipe. No SAFETY: comments;
+    FFI invariants implicit.
+  - src/parallel/job_token.rs (l.41, 105): `unsafe fn from_env` for
+    the jobserver. Doc comment on the wrapper at l.27-35 explains
+    the fd-unsafety concern but no SAFETY at the call site.
+  
+  Concern #3 (miri): unchanged. The published tarball excludes
+  `/.github`, `tests`, and `src/bin` (Cargo.toml l.19-23), so CI
+  configuration is not shipped. miri-amenable unsafe (OnceLock
+  UnsafeCell, Pin::new_unchecked) is not in-tree-validated; libc
+  FFI is not miri-amenable. Caps independently at `positive`,
+  dominated by the #2 `neutral` cap.
+  
+  Concern #4 (correctness): no bugs found on this pass. Spot-checked
+  the new code:
+  - assemble_progressive (l.2752): the `D` probe attempts `cqD`
+    silently, sets the `Option<bool>` for subsequent batches, and
+    on failure falls back to `cq` + `ZERO_AR_DATE=1`. Probe runs
+    only once per archive; correct.
+  - parse_arch sh4 prefix match (target/parser.rs:171) is ordered
+    before the generic `sh` prefix (l.196) so sh4 wins. Correct.
+  - target ABI sanitizer scrub (target/parser.rs:443) sets abi="" for
+    "asan"/"msan"/"tsan" - matches the rustc gnuasan/etc parsing fix.
+  - Build::env (l.1400) just pushes onto a Vec; the doc claims it only
+    overrides SDKROOT / *_DEPLOYMENT_TARGET / WASI_SDK_ROOT but the
+    implementation enforces no allowlist - any key/value pair lands
+    in self.env and is forwarded to spawned commands via Tool::env.
+    Not a soundness issue; just a doc/impl drift worth noting.
+  
+  Read: all `.rs` files under `src/` (8.4k LOC), Cargo.toml, README,
+  CHANGELOG. Did not exhaustively trace every compiler-flag branch
+  in the 4505-line lib.rs.
+----- SIGN CREV PROOF -----
+3io3MN6cvRP4-wKqo-Xl6Jn0vZekUJOfgIXwfjBNabiVTv7l5BxyOv72qNvdazFJBsMFUAU3TfwU5aAOcNwnDg
+----- END CREV PROOF -----
+
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T18:13:29.365532+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cfg_aliases
+  version: 0.2.1
+  revision: 3d55ba79872b61265a7176110a5200df0c9d9e54
+  digest: Dt4J0ikeiFM_5vo7RyMadKez6Kt0wbRslnWigDD9TQw
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Tiny single-file declarative-macro crate (src/lib.rs, ~380 lines incl. docs).
+  Zero runtime/build dependencies, no build.rs, no proc-macro (it is a
+  `macro_rules!`), no `unsafe`, no `include_bytes!`, no `Command`, no
+  network or filesystem access. Confirmed by reading src/lib.rs and
+  tests/test.rs in full and grepping the tree for `unsafe`, FFI, and
+  I/O patterns (no hits).
+  
+  The `cfg_aliases!` macro expands inside the consumer's build.rs and
+  emits standard Cargo directives via `println!`:
+    - `cargo:rustc-check-cfg=cfg(<alias>)` (lib.rs:368)
+    - `cargo:rustc-cfg=<alias>` when the alias's expression evaluates
+      truthy (lib.rs:369-371).
+  Truth evaluation reads `CARGO_CFG_*` / `CARGO_FEATURE_*` via
+  `std::env::var` — the standard Cargo-provided inputs to a build
+  script. Nothing else escapes the macro.
+  
+  Notable, intentional behaviour:
+  - DEBUG_ASSERTIONS fallback at lib.rs:184-188 checks `PROFILE ==
+    "debug"` because Cargo does not currently set
+    `CARGO_CFG_DEBUG_ASSERTIONS`; references rust-lang/cargo#5777.
+    Documented and reasonable.
+  - README documents two known macro-ergonomics limitations: misuse
+    yields cryptic "recursion limit reached" errors, and mutually
+    referencing aliases recurse infinitely. Not bugs; documented.
+  
+  Authorship: Zicklag (katharostech). Repo
+  github.com/katharostech/cfg_aliases; license MIT; `passively-maintained`
+  per Cargo.toml. The parser is credited to and structurally derived
+  from `tectonic_cfg_support::target_cfg!` (NOTICES.md). No advisories
+  on rustsec.org for this crate.
+  
+  No concern-#2 or #3 caps apply (no `unsafe` anywhere). No functional
+  bugs found in concern #4.
+----- SIGN CREV PROOF -----
+Yg--7b1SppFERuFObm8Uxpauhuo7fzwJmQn1R1gjccZlvawturwdm0YE9RgNCUMzE8mZXgqonNKMiYeKT_71BA
+----- END CREV PROOF -----
+
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T18:18:48.048366+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cfg-if
+  version: 1.0.4
+  revision: 3510ca6abea34cbbc702509a4e50ea9709925eda
+  digest: o-tDZwzvROqO0FkkwtA2ei_hbdUaWyDfbAwe3y8xPmk
+review:
+  thoroughness: high
+  understanding: high
+  rating: strong
+comment: |-
+  Tiny, well-established declarative-macro crate from the rust-lang
+  org (author: Alex Crichton). Read everything: Cargo.toml,
+  Cargo.toml.orig, the single src/lib.rs (213 lines, one
+  `macro_rules! cfg_if`), tests/xcrate.rs, README, CHANGELOG,
+  .github/workflows/main.yaml.
+  
+  Supply chain (concern #1):
+    - No build.rs (`build = false` in Cargo.toml).
+    - Not a proc-macro crate; cfg_if is a `macro_rules!` and only
+      expands to `#[cfg(...)]`-gated items plus a tiny `@__items` /
+      `@__temp_group` helper recursion. No code runs at macro time.
+    - `#![no_std]`, no I/O, no FFI, no `extern crate` beyond the
+      optional `rustc-std-workspace-core` shim gated on the
+      `rustc-dep-of-std` feature (only used when building libstd).
+    - License MIT OR Apache-2.0, repository points at the official
+      rust-lang/cfg-if; .cargo_vcs_info.json sha1
+      3510ca6abea34cbbc702509a4e50ea9709925eda matches the v1.0.4 tag.
+  
+  Unsafe (concerns #2/#3): grep for `unsafe` returns zero matches
+  across the crate. N/A.
+  
+  Correctness (concern #4): the `@__temp_group` indirection
+  (lib.rs:73-81, 92-95) is explicitly documented to address the
+  issue #90 regression where a multi-item branch would only get
+  the `#[cfg]` attached to the first item; tests cover this
+  (lib.rs:147-155) along with within-function usage, trailing
+  `else`, no-else chains, and the new `cfg(true)`/`cfg(false)`
+  support added in 1.0.4 (lib.rs:157-166). CI runs the suite on
+  MSRV 1.32, stable, beta, and nightly. No bugs found.
+----- SIGN CREV PROOF -----
+mQNxJe1nFVkh6283lKLWCRbW6y5yscgh9QWvyhPGXEJtYU8l30qLQrL_xhJMzkOwSwTG1cFnwgRFFD-WR9FVCg
+----- END CREV PROOF -----
+
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T18:26:06.454992+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: ciborium
+  version: 0.2.2
+  revision: fdf3ec5c53256000f8e12f06c361ca18026a8d99
+  digest: fC7lt0E2e8bhQljW2L2KDQtth6NuUzxqYXDxrznPdlI
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+comment: |-
+  Serde CBOR (de)serializer, sibling of ciborium-io / ciborium-ll. Read every
+  .rs file under src/, Cargo.toml, README, and skimmed tests/.
+  
+  Concern 1 (malicious/suspicious): nothing found. No build.rs, no proc-macro
+  (`cbor!` is a declarative macro), no `include_bytes!`/`include_str!`, no
+  `std::process`, `Command`, network or filesystem APIs, no `env!`/`option_env!`,
+  no `#[no_mangle]`, no inline asm. Dependencies are the author's own
+  ciborium-io/ciborium-ll plus serde. License Apache-2.0, repo metadata
+  matches enarx/ciborium.
+  
+  Concern 2 (`unsafe` without SAFETY): the library code contains zero `unsafe`
+  blocks/fns. Grep finds `unsafe` only in tests/fuzz.rs (fork()/pipe()/waitpid()
+  libc bindings for a fuzz harness), which is not shipped to consumers. N/A.
+  
+  Concern 3 (`unsafe` without miri): N/A - no library unsafe.
+  
+  Concern 4 (correctness): no bugs found that I can reproduce. Notes:
+  - Decoder enforces a default recursion limit of 256 (src/de/mod.rs:847);
+    tests/recursion.rs proves indefinite-length arrays, maps, bytes, and
+    text all terminate without stack overflow.
+  - Bigint decoding (src/de/mod.rs:90-117) bounds the accumulator to 16
+    bytes and rejects longer inputs with "bigint too large"; round-trips
+    u128::MAX and i128::MIN correctly.
+  - `unwrap()` calls in src/ are guarded: `chars().next().unwrap()` follows
+    a `chars().count() == 1` check (de/mod.rs:308, value/de.rs:336);
+    `next().unwrap()` in MapAccess::next_value_seed runs after a successful
+    peek in next_key_seed (value/de.rs:544); `temp.take().unwrap()` follows
+    the paired serialize_key (value/ser.rs:375); `parent.take().unwrap()`
+    in newtype_variant_seed consumes `self` so cannot be reentered
+    (tag.rs:165). `unreachable!()` in Value's Integer dispatch
+    (value/de.rs:249, value/ser.rs:56) is only reachable if a value of
+    type Integer (internal i128) doesn't fit in i128 - impossible.
+  - Map(Some(n))'s `size_hint()` is forwarded verbatim from the wire, so
+    a pathological encoder can claim a huge length; mitigated upstream by
+    serde's own capacity guards in Vec/HashMap deserializers. Worth being
+    aware of but not a ciborium bug.
+  
+  The `cbor!` macro and tag handling use the sentinel names "@@TAG@@",
+  "@@TAGGED@@", "@@UNTAGGED@@"; a user type literally named "@@TAG@@"
+  would interact oddly with tag dispatch, but this is a documented design,
+  not a bug. `serialized_canonical_cmp` (value/canonical.rs:9) discards
+  the serialize error with `let _ =`; serializing an in-memory Value to a
+  Vec<u8> cannot fail in practice.
+----- SIGN CREV PROOF -----
+m5cHDwRCkrfjiqnn3lqkHqkjh1U1SyFZEjsI3uYtPYE_4VpmLA7hczp_DLpuqPOjREwpUIk4j9gyG2MNpymHDA
+----- END CREV PROOF -----
+
