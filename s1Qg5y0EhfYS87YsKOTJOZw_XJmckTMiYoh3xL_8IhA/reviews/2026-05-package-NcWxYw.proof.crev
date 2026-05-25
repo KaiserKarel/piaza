@@ -2783,3 +2783,88 @@ comment: |-
 8QCXoYXZFpnVlhIfte4ZQoC3-wN-0ZWFCahcJcOKDEBWPjO3tuCPhUJ_DudsLevL4-oR0Bl-zSwdmlE1g6FUBg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T22:27:47.961676+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: cipher
+  version: 0.4.4
+  revision: 0af93f6076a76757c65cb2ef6f6abd9756440478
+  digest: bqf6gwX1fHNftz-rlTzB4-HmLOwVF24VtUBtCsljxNs
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: try-apply-keystream-partial-uses-mod-instead-of-div
+  severity: medium
+  comment: |
+    `StreamCipherCore::try_apply_keystream_partial` at
+    `src/stream_core.rs:108-112` computes
+    `blocks = buf.len() % BlockSize::USIZE` (and `+ 1` on the
+    non-divisible branch) where it must compute
+    `blocks = buf.len() / BlockSize::USIZE`. The "remaining keystream
+    sufficient?" precondition is therefore not enforced; the function
+    proceeds to drive the backend past `remaining_blocks()`.
+    Reproduction: repros/cipher/0.4.4/try-apply-keystream-partial-uses-mod-instead-of-div/
+- id: unsafe-without-safety-comment-stream-core-into-chunks
+  severity: low
+  comment: |
+    `into_chunks` at `src/stream_core.rs:198-212` contains an `unsafe`
+    block (two `slice::from_raw_parts_mut` calls and one `ptr.add`)
+    with no `// SAFETY:` comment. The invariants are knowable from the
+    surrounding arithmetic, but they aren't documented at the call
+    site. Caps this review at `neutral` per the project rubric.
+comment: |-
+  Pure-trait crate (~1400 lines across 8 files, with the bulk in `block.rs`
+  and the dev-feature test macros). No `build.rs`, no proc-macros, no FFI,
+  no network or filesystem I/O, no `std::process`. The only `include_bytes!`
+  calls are inside `#[macro_export]`ed test helpers gated on the `dev`
+  feature and are interpolated by the downstream test crate, not the
+  trait crate itself. Dependencies are all `RustCrypto` siblings
+  (`crypto-common`, `inout`, optional `blobby`, optional `zeroize`).
+  Licensing and metadata match the rest of the RustCrypto ecosystem.
+  
+  Two `unsafe` occurrences:
+   - `src/stream_wrapper.rs:55-56` — `core::hint::unreachable_unchecked()`
+     with a `// SAFETY:` comment whose stated invariant ("pos is set only
+     to values smaller than block size") is upheld by `set_pos_unchecked`'s
+     debug_assert and the internal call sites I traced.
+   - `src/stream_core.rs:206-211` — `slice::from_raw_parts_mut` (called
+     twice, plus `ptr.add(tail_pos)`) inside the private `into_chunks`
+     helper, with NO `// SAFETY:` comment. The invariants
+     (`tail_pos = N::USIZE * chunks_len <= buf.len()`, lifetimes tied to
+     `&mut [T]` input, alignment of `*mut GenericArray<T, N>` matching
+     `*mut T`) are knowable but the author left them undocumented.
+     Per AGENTS.md rule #2 this caps the rating at `neutral`.
+  
+  No `miri` invocation in any visible CI config (the crate ships only
+  `Cargo.toml` + `LICENSE-*` + `CHANGELOG.md` + sources; the workspace
+  CI lives in the upstream `RustCrypto/traits` monorepo, not in the
+  published artifact). The `into_chunks` block is miri-testable in
+  principle.
+  
+  Found one functional-correctness bug in
+  `StreamCipherCore::try_apply_keystream_partial`
+  (`src/stream_core.rs:108-112`): the block-count expression uses `%`
+  where it must use `/`, so the "is the remaining keystream sufficient"
+  check is bypassed for any input whose length is an exact multiple of
+  the block size, and under-counts by `buf.len() / bs` blocks in general.
+  The default method silently drives the backend past
+  `remaining_blocks()`, which in concrete stream ciphers either panics
+  or — if the backend wraps — produces a reused keystream. Note that
+  `StreamCipherCoreWrapper::check_remaining` in `stream_wrapper.rs:96-100`
+  computes the same quantity correctly, so the bug is localised to the
+  default-method path.
+  
+  Reproduction: `repros/cipher/0.4.4/try-apply-keystream-partial-uses-mod-instead-of-div/`.
+----- SIGN CREV PROOF -----
+mC2vXRCWL6_aHgQSSUcWO7pG1_XaLEF9bQwJ4Dn1Y0_iCYZxnJLRAv2YooXAQVJdg3zk83grrSIHn0L4-pOADA
+----- END CREV PROOF -----
+

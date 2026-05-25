@@ -1,0 +1,8 @@
+[package]
+name = "repro-cipher-0_4_4-try-apply-keystream-partial-uses-mod-instead-of-div"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+cipher = "=0.4.4"
