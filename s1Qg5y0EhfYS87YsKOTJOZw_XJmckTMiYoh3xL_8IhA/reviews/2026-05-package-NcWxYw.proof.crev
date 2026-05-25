@@ -3595,3 +3595,64 @@ comment: |-
 Pgrju-Q7jH5Ih2mjoAnOpKFA0IJn8Rxu7CjUyEnriaL9C-l4Nvtd60sqqgkSDNzcwhxMPmkVWx4uHq7ls1GYCQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:27:01.283206+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: crossbeam-deque
+  version: 0.8.6
+  revision: ccd83ac4108a2a1b41e9c6e79c87267167d18dfa
+  digest: juR7i4yXO0Rda1RGHtMFQe8tpLqRJ190kRs5V0-KhXA
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: neutral
+comment: |-
+  Concurrent work-stealing deques (Chase-Lev Worker/Stealer + an Injector
+  MPMC FIFO). Two source files: src/lib.rs (~110 lines, no_std + std mod
+  re-exports) and src/deque.rs (~2.2k lines). Read both end to end and
+  scanned the four test files. No build.rs, no proc-macros, no
+  include_bytes!, no network/process/libc usage. Cargo.toml is clean —
+  only depends on the sibling crossbeam-epoch and crossbeam-utils crates
+  (default-features disabled, std feature opt-in), plus rand as a
+  dev-dep. License MIT/Apache-2.0, repository points to the canonical
+  crossbeam-rs org. Algorithm matches the published Chase-Lev and Le et
+  al. weak-memory papers cited at deque.rs:99.
+  
+  Concern #2 (SAFETY comments): the file contains 42 unsafe occurrences
+  but only two explicit `// SAFETY:` headers (deque.rs:1239 and 1245, on
+  Block::new). The remaining unsafe blocks (Buffer::at/read/write,
+  resize, all the Stealer/Injector steal paths, the Drop impls) carry
+  free-form rationale in surrounding comments rather than the canonical
+  `// SAFETY:` form. The invariants ARE the ones from the cited Chase-
+  Lev / weak-memory papers, but per the rubric the missing-SAFETY-header
+  cap applies — capping at `neutral`.
+  
+  Concern #3 (miri): the published tarball doesn't ship .github/, so I
+  can't confirm CI config directly, but every test file is written with
+  `#[cfg(miri)]` arms that shrink iteration counts and a `cfg_attr(miri,
+  ignore)` on the heavy stress tests — strong evidence the project does
+  run these under miri. Cargo.toml's check-cfg also lists
+  `crossbeam_loom` and `crossbeam_sanitize`, consistent with the
+  crossbeam org's known loom/miri practice. No additional cap from #3.
+  
+  Concern #4: read the steal and pop paths critically. Index arithmetic
+  uses wrapping_{add,sub} on isize/usize as expected; bounds checks on
+  buffer slots come from masking with `cap-1` (cap is power-of-two,
+  asserted in Buffer::alloc). Volatile read/write on possibly-racing
+  slots is documented at lines 70-86 as a deliberate hack to avoid
+  per-T atomic stores. The CHANGELOG notes 0.8.6 fixed a stack-overflow
+  on pushing very large `T` into Injector (#1146/#1147/#1159); inspecting
+  Block::new at deque.rs:1238 confirms it now uses alloc_zeroed +
+  handle_alloc_error rather than `Box::new(zeroed)`, which is the fix.
+  No new functional bugs surfaced during the read.
+----- SIGN CREV PROOF -----
+72_Ud_JROwvxN0DnsDDxMB5QyirI1cwdna3vzTFVc8lOAh0BWuNqDuKH6YsnKvAcee-wClFCQsMZTPD64K7jBg
+----- END CREV PROOF -----
+
