@@ -3062,3 +3062,83 @@ comment: |-
 JbmSUNwh_QqqDby6OlZoGnX6weicxMc3scPnTPiN7nL82g25hc74TSsVgw1Mn_s8fVwoWWzIPdxsJe4CVLT5CQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T22:52:21.797192+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: const_format
+  version: 0.2.36
+  revision: 6bcde171f0a9c59d8afc88492db52c7e1d343ebd
+  digest: Ok9ojuy7KFcFHKgrBY5gCEPDJ6ZCCpQRXJLR0tOSlYA
+review:
+  thoroughness: medium
+  understanding: medium
+  rating: positive
+issues:
+- id: safety-comment-style
+  severity: low
+  comment: |
+    Most unsafe blocks have justifying comments, but they use lowercase
+    `// safety:` (e.g. fmt/formatter.rs:260,302) instead of the canonical
+    `// SAFETY:` prefix. ascii_str.rs:158 (`unsafe { from_utf8_unchecked(self.0) }`)
+    has no explicit `// SAFETY:` comment at all — the invariant is established
+    by the `AsciiStr::new` constructor (validates bytes < 128) and the private
+    tuple field, but a mechanical audit (clippy `undocumented_unsafe_blocks`)
+    would flag it. Stylistic only; substance is correct.
+comment: |-
+  Reviewed const_format 0.2.36, a no_std compile-time string formatting
+  library by rodrimati1992. Read every .rs file under src/ (lib.rs, macros/,
+  fmt/, wrapper_types/, __str_methods/, __ascii_case_conv/, char_encoding.rs,
+  formatting.rs, pargument.rs, slice_cmp.rs, equality.rs, for_assert_macros.rs,
+  const_generic_concatcp.rs, __hidden_utils.rs, utils.rs) plus Cargo.toml and
+  README.md.
+  
+  Concern #1 (malicious/suspicious): no build.rs (`build = false`), no
+  obfuscation, no Command/syscalls, no network, no env-var reads. Only
+  filesystem-touching macro is `include_str!("../../README.md")` gated behind
+  the `__test` feature for a doctest. Dependencies are tightly pinned to
+  companion crates by the same author (`const_format_proc_macros =0.2.34`,
+  `konst 0.2.20`) and the dev-deps `arrayvec` / `fastrand`. License (Zlib),
+  repo, docs links all present and consistent.
+  
+  Concern #2 (unsafe + SAFETY): unsafe usage falls into three patterns —
+  (a) `from_utf8_unchecked` on bytes the type invariant guarantees are valid
+  UTF-8 (str_writer.rs:352, str_writer_mut.rs:457,480, ascii_str.rs:158);
+  (b) `transmute<[[u8; N]; M], [u8; N*M]>` and packed `DecomposedString` casts
+  via a `PtrToRef` union to slice/repeat/splice byte arrays at const time
+  (macros/str_methods.rs, macros/fmt_macros.rs, macros/map_ascii_case.rs);
+  (c) the unsafe fn `StrWriterMut::into_byte_encoding` plus its two call sites
+  in fmt/formatter.rs. Each `transmute`/PtrToRef path is preceded by a
+  compile-time `_ASSERT_VALID_*` check (length overflow for repeat, char
+  boundary for splice/index) so the requested byte ranges land inside the
+  source string. `into_byte_encoding` has a "Safety:" doc and Formatter only
+  writes valid UTF-8. All substantively sound; the SAFETY-comment style nit
+  is captured in `issues` and does not justify capping below `positive`.
+  
+  Concern #3 (miri): I cannot verify CI from the packaged tarball
+  (.github/workflows/ is not included), but `#[cfg(not(miri))]` attributes
+  on tests in ascii_str.rs and wrapper_types/pwrapper/tests.rs indicate the
+  author is miri-aware. All unsafe in this crate is pure-Rust (no FFI,
+  syscalls, or inline asm) and is in principle miri-testable.
+  
+  Concern #4 (functional correctness): no reproducible bugs found.
+  Traced: `str_split!` with empty splitter against the documented
+  `"🧡BAR🧠" → ["", "🧡", "B", "A", "R", "🧠", ""]` example; `str_repeat!`
+  overflow handling (overflowing_mul + compile-time `assert_valid` panics
+  via `[][overflowed_len]`); `is_char_boundary_no_len_check` using
+  `(b as i8) >= -0x40`; PWrapper integer length-computation digit thresholds
+  (`1_0000_0000 / 100_000_000` match); FOR_ESCAPING table construction asserts
+  uniqueness of the 4-low-bit hash. No off-by-one, no panics on plausible
+  input, no overflow paths into the unsafe transmutes.
+  
+  Did not run any code per project rules (no cargo build/test/expand).
+----- SIGN CREV PROOF -----
+FC4Y62Dn4SOMPSRdZcoXIwcZKhu2UrT9GYT9jzy3do5VGgXKgTeELOY9E7JAdbeS88V9ShenyjZrTp1g91SLCQ
+----- END CREV PROOF -----
+
