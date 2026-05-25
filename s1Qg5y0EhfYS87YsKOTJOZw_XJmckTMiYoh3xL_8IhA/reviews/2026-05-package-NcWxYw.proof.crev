@@ -3514,3 +3514,84 @@ comment: |-
 9lYIyRrTlrMsbbE5KitvUSdtoYQFdnkrwTTDWsiC2T120I4Y6AIC9_17RCkd0oKtEVCgQXNu55xcMkkaKW8GDg
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:23:35.415741+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: crossbeam-channel
+  version: 0.5.15
+  revision: d35ffde18a76ae9667f602d8c0127ff89ac2e4d4
+  digest: BOhBSPqK9jvJQNcAeAhxJdjdya3TZRPf0PinqfRABAA
+review:
+  thoroughness: high
+  understanding: medium
+  rating: neutral
+advisories:
+- ids:
+  - RUSTSEC-2025-0024
+  severity: high
+  range: minor
+  comment: |
+    Double-free on Drop in unbounded channels (`flavors/list.rs`),
+    regression introduced in 0.5.12 by the memory-leak fix MR #1084 and
+    fixed in 0.5.15 by MR #1187. Affects 0.5.12-0.5.14, which are all
+    yanked. 0.5.15 (this review) is the fixed release; the `range: minor`
+    indicates earlier patch releases of the same 0.5.x line are affected.
+comment: |-
+  MPMC channel library from the official crossbeam-rs project. Read every
+  .rs file in src/ (channel.rs, counter.rs, context.rs, err.rs, select.rs,
+  select_macro.rs, utils.rs, waker.rs, and all six flavors). No build.rs,
+  no proc-macros, no_std-capable, dual MIT/Apache-2.0, single std-only
+  dependency on crossbeam-utils.
+  
+  Concern #1 (malicious): nothing found. The code is intricate lock-free
+  concurrency (Vyukov bounded MPMC in flavors/array.rs, linked-list of
+  32-slot blocks in flavors/list.rs, mutex-guarded rendezvous in
+  flavors/zero.rs, atomic-deadline in flavors/at.rs and flavors/tick.rs)
+  but every unsafe operation is local to channel internals -- no I/O, no
+  syscalls, no FFI, no obfuscated data.
+  
+  Concern #2 (SAFETY comments): many unsafe blocks lack formal `// SAFETY:`
+  comments. flavors/list.rs:86-99 (Block::new) does it right with explicit
+  invariants for zero-initialization. Counter-examples include counter.rs:45
+  / counter.rs:100 (`unsafe { &*self.counter }`), the `unsafe fn release`
+  on counter.rs:67/122, the transmute_copy chain in channel.rs:766-833 and
+  channel.rs:1517-1522 that relies on T == Instant for the At/Tick flavors,
+  the Drop unsafe blocks in channel.rs:657 and channel.rs:1152, the
+  pub(crate) `unsafe fn write/read` on the flavors that have no /// # Safety
+  doc, the get_unchecked + ptr cast pattern throughout flavors/array.rs and
+  flavors/list.rs, and the lifetime-erasing transmute in select_macro.rs:756
+  /778/808/850/882 (these have an explanatory `// Erase the lifetime ...`
+  but not a formal SAFETY annotation). Per project rubric this caps the
+  rating at `neutral`.
+  
+  Concern #3 (miri): the upstream CI (.github/workflows/ci.yml in the
+  crossbeam-channel-0.5.15 tag) runs `cargo miri test -p crossbeam-channel`
+  with `-Zmiri-symbolic-alignment-check -Zmiri-disable-isolation
+  -Zmiri-ignore-leaks`, plus cargo-careful and a randomize-layout RUSTFLAGS
+  matrix. Pure-Rust unsafe is therefore exercised under miri. No cap from
+  this concern.
+  
+  Concern #4 (correctness): 0.5.15 is the release that fixes
+  RUSTSEC-2025-0024 (double-free on Drop introduced in 0.5.12, see #1187).
+  The fix is visible in flavors/list.rs:584-646 -- `discard_all_messages`
+  now uses `self.head.block.swap(ptr::null_mut(), AcqRel)` at both load
+  sites (lines 604 and 614), so Drop can no longer race with discard on
+  the same block pointer. 0.5.12-0.5.14 are yanked. No further bugs found
+  on inspection. Spot-checked the integer/index arithmetic in array.rs
+  (`one_lap = next_power_of_two(cap+1) * 2`, head/tail stamp packing) and
+  list.rs (block-of-32 indexing with SHIFT/MARK_BIT/LAP); the wrap-around
+  uses `wrapping_add`/`wrapping_sub` consistently.
+  
+  Net: rating `neutral` because of the SAFETY-comment gap, not because of
+  any concrete defect.
+----- SIGN CREV PROOF -----
+Pgrju-Q7jH5Ih2mjoAnOpKFA0IJn8Rxu7CjUyEnriaL9C-l4Nvtd60sqqgkSDNzcwhxMPmkVWx4uHq7ls1GYCQ
+----- END CREV PROOF -----
+
