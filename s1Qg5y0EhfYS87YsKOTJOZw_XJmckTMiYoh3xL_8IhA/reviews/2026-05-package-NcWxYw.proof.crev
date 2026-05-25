@@ -3207,3 +3207,63 @@ comment: |-
 Z2lSiRGQf4empz2I91_wfodYljRqhrsg1oo7tC3n1tMqoqkgMBQSW7zO2gEoPr86fVrP2S5HPz2W0IYzEqShCw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T23:07:36.161009+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: constant_time_eq
+  version: 0.4.2
+  revision: 86f38ed9ad4d0500c5472bb8cb2ddc4fe5ac7143
+  digest: yi9Z9B1tcsh2Z1olhC7fNqkN1m90L9kbAmPzDrQ3U_8
+review:
+  thoroughness: high
+  understanding: high
+  rating: positive
+comment: |-
+  Constant-time byte-string equality used widely in the crypto ecosystem.
+  Cargo.toml sets `build = false`; no build.rs and no proc-macro. The crate
+  is split into a lib.rs dispatcher and four backend modules (classic.rs,
+  generic.rs, sse2.rs, neon.rs) plus the aarch64 DIT-bit helper (dit.rs).
+  
+  Read every .rs file under src/, the tests, the CI workflow, and the
+  changelog. Concern walkthrough:
+  
+  (1) Malicious code: none. Only network/file access in CI is downloading
+  toolchains. Inline asm is restricted to register-only constraints
+  (`nomem`, `nostack`, `preserves_flags`) on the well-known constant-time
+  primitives, plus DIT/SB MSR writes that are conditioned on runtime
+  feature detection via `is_aarch64_feature_detected!`.
+  
+  (2) `unsafe` without SAFETY: every `unsafe` block has a `// SAFETY:`
+  comment, and lib.rs has `#![deny(clippy::undocumented_unsafe_blocks)]`
+  so the lint enforces it. Each comment names a real invariant (e.g.,
+  "all bit patterns are valid for type T" for `read_unaligned`, "called
+  only when FEAT_DIT is implemented" for the DIT MSR accessors). The
+  `transmute<u8, Features>` in dit.rs is gated on `features > 0` and the
+  enum's discriminants are explicit (1, 2, 3); the SAFETY note matches.
+  
+  (3) Miri: CI runs `cargo miri test` with and without default features.
+  Architecture-specific backends are `cfg(not(miri))`-gated, so miri
+  exercises the generic backend (which is the one with miri-testable
+  `read_unaligned` unsafe). Inline asm + aarch64 system-register access
+  are not miri-testable; gating them out is the correct approach.
+  
+  (4) Correctness: the inputs-equal short-circuit checks `a.len() != b.len()`
+  before any timing-sensitive work, matching the documented contract
+  (constant-time only when lengths match). All `read_unaligned`
+  call-sites assert `src.len() == size_of::<T>()` before the read. The
+  generic loop processes word-at-a-time then peels off u128/u64/u32/u16/u8
+  tails; size comparisons use `>=` so the residual length is always less
+  than the type size before the next branch. The `tests/exhaustive.rs`
+  test misaligns the buffer and flips every bit of every position for
+  lengths 0..=128 against both the SIMD and generic entry points.
+----- SIGN CREV PROOF -----
+4l7SkAFvYwPwyfyLs5tkCUKD0RVB03iBhcOVOE4KtdAswwpyQN6OL0Ej3DwGCxY_xOEUKc5NHiDeiDLMmTE5BA
+----- END CREV PROOF -----
+
