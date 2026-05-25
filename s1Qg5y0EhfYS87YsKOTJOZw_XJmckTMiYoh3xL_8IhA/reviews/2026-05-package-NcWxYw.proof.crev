@@ -4456,3 +4456,60 @@ comment: |-
 JzuZeAn91_GCG1bES6NB4EwmLmxaLMt5-3UoFYrA4li6qRGTuI7SR9cGVu_sjJaSCNHDfF_88eKd-QSlhF0tCQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:23:43.996977+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: downcast
+  version: 0.11.0
+  revision: 14a52c5882aff45173fd9796cde73a6037709dc6
+  digest: fuLyqS2COH0YvDvb_lIYPeFN39NeIO8i4opKAMKzS3A
+review:
+  thoroughness: high
+  understanding: high
+  rating: positive
+comment: |-
+  Tiny crate (~450 lines, single src/lib.rs) providing a `Downcast<T>` trait
+  and `impl_downcast!` / `downcast!` / `downcast_sync!` declarative macros
+  that let users call `downcast_ref`/`downcast_mut`/`downcast`/`downcast_rc`/
+  `downcast_arc` on their own trait objects. Thin layer over `std::any::Any`.
+  
+  Concern #1 (malicious/suspicious code): clean. No `build.rs`, not a
+  proc-macro (declarative macros only), no `include_bytes!`, no network/
+  filesystem/process I/O, no obfuscation. Grep for `unsafe|include_bytes|
+  process::Command|libc|extern "C"|std::env|std::net|std::fs|std::process`
+  produced one hit in README prose only. No external dependencies. License
+  MIT, repository link present and resolvable.
+  
+  Concern #2 (unsafe without SAFETY): N/A - zero `unsafe` blocks or `unsafe
+  fn` in src/. Caps don't apply.
+  
+  Concern #3 (unsafe without miri): N/A - no unsafe code to validate.
+  
+  Concern #4 (functional correctness): the `.unwrap()` calls at lib.rs:129,
+  137, 146, 156, 170 are each immediately guarded by `is_type()` which
+  checks `TypeId::of::<T>() == self.type_id()`. Since std's
+  `Any::downcast_ref` / `Box<dyn Any>::downcast` succeed iff the `TypeId`
+  matches, the unwraps are infallible. The macros require `_T: 'static`
+  (via the `Any` bound) and `$params: 'static`, satisfying std `Any`'s
+  contract.
+  
+  Minor notes (no rating impact): the `nightly` feature is declared but
+  unused - `std::any::type_name` has been stable since Rust 1.38, so the
+  feature is vestigial. README install snippet shows `"0.12"` while this
+  release is `0.11.0` (cosmetic). Author explicitly notes (README) that
+  the crate is feature-frozen and recommends `downcast-rs` for active
+  maintenance; consumers should weigh that.
+  
+  No CI files shipped in the tarball; not a concern here because the
+  surface is small and `unsafe`-free.
+----- SIGN CREV PROOF -----
+82Cq7Yrr0Wg_8Q3j8CHZauv0ld8OmrLspIOOwenaDe33eocX9pzC2VmPSQXwJ05I4KjApMI3qGfsURrLocbPCw
+----- END CREV PROOF -----
+
