@@ -1737,3 +1737,56 @@ comment: |-
 WFSGAC0xDoQSpKhJpzjQC5hoVQXOvdpjYrIt3HTAcru9b-wjWfcsYjYcFX7mVNAo56jD9HSjuFjsDQ5at_OsDQ
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T15:57:58.682728+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: blowfish
+  version: 0.9.1
+  revision: 7de364ede310f1ea7080c99ddf1138aeb47f9a69
+  digest: njIL-cJjd6D39M5jKNixd330WtbFfIg2of2ISs9Dgic
+review:
+  thoroughness: medium
+  understanding: high
+  rating: positive
+comment: |-
+  Pure-Rust no_std Blowfish block cipher from the RustCrypto org. Small
+  surface: src/lib.rs (~250 lines) + src/consts.rs (P-array and 4 S-boxes
+  matching the standard Blowfish constants derived from the digits of pi).
+  
+  Safety / supply-chain:
+  - No build.rs, no proc-macros.
+  - `#![deny(unsafe_code)]` at lib.rs:19; grep confirms zero `unsafe` in src.
+  - Dependencies are `byteorder` and `cipher` (both RustCrypto / well known).
+  - License MIT/Apache-2.0, repository and metadata consistent.
+  
+  Correctness:
+  - encrypt/decrypt implement the standard 16-round Feistel + final P[16]/
+    P[17] whitening; decrypt iterates p indices in reverse, matches spec.
+  - `expand_key` writes p[0..18] then s[i][0..256] for i in 0..4 via the
+    standard chained-encryption schedule.
+  - `new_from_slice` validates `4 <= key.len() <= 56` before `expand_key`.
+  - `new` unwraps `new_from_slice(&key[..])` where Key has fixed size
+    U56 = 56 bytes, so the unwrap cannot fire.
+  
+  Minor notes (not blocking):
+  - `next_u32_wrap` (lib.rs:49) would panic via `buf[0]` on an empty slice
+    because the wrap branch sets `*offset = 0` and then indexes. The safe
+    `KeyInit` path can't reach it (length check rejects empties), but the
+    bcrypt-feature methods `bc_expand_key` and `salted_expand_key` are
+    `pub` and do NOT validate their inputs — passing an empty key or
+    eventually exhausting offset against an empty salt panics. Acceptable
+    for a hazmat low-level crate that documents itself as "NOT intended
+    for direct use in applications", and the only sane consumer (the
+    `bcrypt` crate) validates beforehand. Worth mentioning.
+  - No constant-time guarantees; README is explicit about this.
+----- SIGN CREV PROOF -----
+LuMxaQwEJLtN_TYScqfpeJ9avR8STe067vTcPfQhAPg6Vnu5A4Ybt_JiiARNps5wOXIe0ODk7CqdgKYri4wADA
+----- END CREV PROOF -----
+
