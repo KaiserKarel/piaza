@@ -4513,3 +4513,109 @@ comment: |-
 82Cq7Yrr0Wg_8Q3j8CHZauv0ld8OmrLspIOOwenaDe33eocX9pzC2VmPSQXwJ05I4KjApMI3qGfsURrLocbPCw
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-26T00:27:15.909960+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: dtoa
+  version: 1.0.11
+  revision: 4c30faa2d91f167d7c343d13ebc9d30730456d56
+  digest: 09ov6iFdHi5ZIjhdGRiyFrc2745EaZGNqYEMfQGpN6I
+review:
+  thoroughness: medium
+  understanding: high
+  rating: neutral
+issues:
+- id: unsafe-without-safety-comments
+  severity: low
+  comment: |
+    Every `unsafe fn` and `unsafe { }` block in this crate lacks a
+    `// SAFETY:` comment. Grep for SAFETY/Safety across src/ returns
+    zero matches. Sites:
+      - src/diyfp.rs:140 `unsafe fn from`
+      - src/diyfp.rs:267-268 two `unsafe { get_unchecked }` blocks
+      - src/dtoa.rs:105 `unsafe fn write_exponent`
+      - src/dtoa.rs:135 `pub unsafe fn prettify`
+      - src/dtoa.rs:310 `unsafe fn grisu_round`
+      - src/dtoa.rs:333 `unsafe fn digit_gen` (with two further
+        `*POW10.get_unchecked(...)` at lines 390 and 433)
+      - src/dtoa.rs:462 `unsafe fn grisu2`
+      - src/dtoa.rs:501 `unsafe fn dtoa` (which calls
+        `str::from_utf8_unchecked(slice::from_raw_parts(start, len))`)
+      - src/lib.rs:220 and src/lib.rs:266 `unsafe { dtoa(buf, self) }`
+    The invariants (positive finite input, 25-byte buffer is large
+    enough, cached-power index in range) are implicit and partially
+    documented via preserved upstream C++ comments. Per rubric §2 this
+    caps the rating at `neutral`.
+comment: |-
+  Tiny `#![no_std]` crate (~600 LoC across src/lib.rs, src/dtoa.rs,
+  src/diyfp.rs) by David Tolnay. Straightforward Rust port of Milo
+  Yip's Grisu2 implementation from RapidJSON (dtoa.h); the original
+  C++ for each function is preserved as comments immediately above the
+  Rust translation. Used pervasively (e.g. serde-json's float
+  formatting path).
+  
+  Concern #1 (malicious/suspicious): Cargo.toml has `build = false`
+  (no build.rs), no proc-macro, no `include_bytes!`, no
+  `std::process::Command`, no network/FS/env I/O, no obfuscation, no
+  `transmute`. Only optional dep is `no-panic` 0.1 (also by dtolnay,
+  compile-time assertion that annotated fns can't panic). License
+  MIT OR Apache-2.0, repository link valid (github.com/dtolnay/dtoa),
+  version matches contents.
+  
+  Concern #2 (unsafe + SAFETY): 9 `unsafe fn`/`unsafe { }` sites plus
+  the embedded `get_unchecked` and `from_utf8_unchecked` calls. Zero
+  `// SAFETY:` comments anywhere in src/. The invariants are real and
+  load-bearing:
+    - `DiyFp::from` requires positive finite input (enforced by the
+      `format` entry point checking `is_nonfinite` and `dtoa` checking
+      `value.is_sign_negative()`).
+    - `prettify` writes via raw pointer up to ~24 bytes past the
+      provided buffer; correctness depends on `Buffer` being 25 bytes
+      (lib.rs:91) and Grisu2 producing at most 17 significant digits.
+    - `get_cached_power`'s `get_unchecked(index)` relies on the
+      derived index staying within 0..87 (f64) / 0..12 (f32); this
+      follows from the bounded exponent range of finite IEEE-754
+      values but is not annotated.
+    - `dtoa` finishes by transmuting written bytes to `&str` via
+      `from_utf8_unchecked` — sound because only ASCII digits, sign,
+      dot, and 'e' are written.
+  Per rubric §2 the cap is `neutral`. Coding patterns themselves look
+  correct.
+  
+  Concern #3 (miri): .github/workflows/ci.yml has a dedicated miri
+  job (lines 63-75) running `cargo miri test` with
+  `MIRIFLAGS=-Zmiri-strict-provenance`. All unsafe here is pure-Rust
+  pointer arithmetic / get_unchecked / from_utf8_unchecked — exactly
+  what miri excels at. No cap from #3.
+  
+  Concern #4 (correctness): No reproducible bugs found. Spot checks:
+    - 25-byte `Buffer` is large enough for the worst-case prettified
+      f64. Longest scientific form is "-1.7976931348623157e308" (23
+      bytes); longest fixed-point branch (`-6 < kk && kk <= 0`)
+      writes "0." + up to 5 zeros + up to 17 digits = 24 bytes plus
+      optional sign = 25.
+    - `Buffer::format` (lib.rs entry) routes NaN/±inf through
+      `format_nonfinite` (cold path returning a static `&str`),
+      protecting the unsafe path.
+    - Cached-power LUTs match the source-of-truth tables in
+      RapidJSON's dtoa.h; sizes (12 / 87) match the `min_power`
+      ranges (-36, -348).
+    - `digit_gen` underflow shape `kappa.wrapping_sub(1)` then
+      `*POW10.get_unchecked(-(kappa as isize) as usize)` is guarded
+      by `if index < 9` — index 0..=8 maps to POW10 indices 0..=8
+      (len 10).
+    - Tests in tests/test.rs cover MIN/MAX, ±0, subnormals (5e-324,
+      1e-45), and scientific/fixed-point boundaries.
+  
+  Did NOT run any code (no cargo build/test/expand) per project rules.
+----- SIGN CREV PROOF -----
+pRii-AlQc4-2JHv0e0x8ITOWBNMvwSd331c4SzjcUQgRc4g-OZlka4s5d4zg_b-XaNhVQDHvcQnNrFNPmIRFDQ
+----- END CREV PROOF -----
+
