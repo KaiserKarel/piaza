@@ -2635,3 +2635,53 @@ comment: |-
 m5cHDwRCkrfjiqnn3lqkHqkjh1U1SyFZEjsI3uYtPYE_4VpmLA7hczp_DLpuqPOjREwpUIk4j9gyG2MNpymHDA
 ----- END CREV PROOF -----
 
+----- BEGIN CREV PROOF -----
+kind: package review
+version: -1
+date: 2026-05-25T22:14:16.214290+09:00
+from:
+  id-type: crev
+  id: s1Qg5y0EhfYS87YsKOTJOZw_XJmckTMiYoh3xL_8IhA
+  url: https://github.com/kaiserkarel/piaza
+package:
+  source: https://crates.io
+  name: ciborium-io
+  version: 0.2.2
+  revision: fdf3ec5c53256000f8e12f06c361ca18026a8d99
+  digest: 0KNLEKUSh-1pCNJX6XS0a2D92sdnCL-fex1k5oCnwik
+review:
+  thoroughness: high
+  understanding: high
+  rating: strong
+comment: |-
+  Minimal `no_std` I/O trait crate: two traits (`Read`, `Write`) plus a handful
+  of blanket and concrete impls. The published tarball contains only
+  Cargo.toml, README, LICENSE, .cargo_vcs_info.json, and src/lib.rs (265
+  lines, including tests). No build.rs, no proc-macros, no dependencies, no
+  features beyond `alloc`/`std`.
+  
+  Concern #1 (malicious/suspicious): none. Grep for `unsafe`, `include_bytes!`,
+  `Command`, `libc`, `extern "C"`, `asm!`, `transmute`, `#[no_mangle]` returned
+  zero matches. No I/O outside the documented trait surface. License
+  (Apache-2.0) and repository link present and consistent with the parent
+  `enarx/ciborium` project.
+  
+  Concern #2/#3 (`unsafe`): not applicable — no unsafe code, so SAFETY-comment
+  and miri caps do not apply.
+  
+  Concern #4 (correctness): read every impl in lib.rs.
+  - `Read for &[u8]` (lib.rs:108-122): `data.len() > self.len()` returns
+    `EndOfFile`; otherwise `split_at(data.len())` + `copy_from_slice` is safe
+    because the length check rules out the panic case.
+  - `Write for &mut [u8]` (lib.rs:130-149): same bounds-check shape with
+    `OutOfSpace`; uses `core::mem::take` to swap the slice out before
+    `split_at_mut` to satisfy the borrow checker. Correct.
+  - `Write for Vec<u8>`: `extend_from_slice`, `Infallible`. Correct.
+  - Std blanket impls forward directly to `std::io::{Read,Write}`.
+  - `&mut R` / `&mut W` forwarders for no_std mirror the std blanket impls.
+  No off-by-ones, no overflow surface (no arithmetic on lengths), no panics
+  reachable from documented inputs.
+----- SIGN CREV PROOF -----
+drdImNAJCfhNX1GDvZCjcLY81QW8hr_EQX-Hi3D7keidt1fAKY0xa-RwDiuxnqzhEGRwMQCaRchaX84cOPKmBw
+----- END CREV PROOF -----
+
